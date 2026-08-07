@@ -4,6 +4,7 @@ package serial
 import (
 	"encoding/hex"
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 
@@ -119,6 +120,8 @@ var knownDevices = map[string]string{
 func (m *Manager) Open(portName string, cfg types.OpenConfig) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+
+	log.Printf("[Serial] Opening port: %s at %d baud", portName, cfg.BaudRate)
 
 	// Check if already connected
 	if m.currentPort != nil {
