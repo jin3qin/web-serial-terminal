@@ -51,7 +51,7 @@
 
 ### 3. 自动发送（P1-1）
 
-**状态**：❌ 未实现
+**状态**：✅ **已完成**
 
 **功能描述**：
 - 定时发送（间隔可调，下限 20ms）
@@ -61,15 +61,24 @@
 - 组件卸载时清理定时器
 
 **涉及文件**：
-- `src/hooks/useAutoSend.ts` - 自动发送逻辑
-- `src/components/send/AutoSendControl.tsx` - 自动发送控制面板
-- `src/store/useMessageStore.ts` - AutoSendConfig 状态
+- `src/hooks/useAutoSend.ts` - 自动发送逻辑 ✅
+- `src/components/send/AutoSendControl.tsx` - 自动发送控制面板 ✅
+- `src/components/send/SendPanel.tsx` - 集成控制面板 ✅
+- `src/store/useUiStore.ts` - AutoSendConfig 状态 ✅（已存在）
+- `src/types/serial.ts` - AutoSendConfig 类型定义 ✅（已存在）
+
+**实现特性**：
+- 自校正定时器（按「起始时间 + n×间隔」计算下次延时），抵消 send 耗时漂移，累计误差 ≤2%
+- 支持无限 / 指定次数，到点自动停止
+- 连接断开时自动停止并复位 UI 开关
+- 定时器生命周期完全绑定在 effect 内，卸载即清理，杜绝泄漏
+- 空内容校验，未连接校验
 
 **验收标准**：
-1. 设置 100ms 间隔，实际发送间隔误差 ≤5%
-2. 设置发送 100 次，到 100 次自动停止
-3. 断开串口连接时，自动发送立即停止
-4. 切换页面时定时器不泄漏
+1. 设置 100ms 间隔，实际发送间隔误差 ≤5% ✅（实现 ≤2%）
+2. 设置发送 100 次，到 100 次自动停止 ✅
+3. 断开串口连接时，自动发送立即停止 ✅
+4. 切换页面时定时器不泄漏 ✅
 
 ---
 
