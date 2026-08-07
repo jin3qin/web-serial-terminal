@@ -306,16 +306,25 @@ export class WebSocketClient {
    */
   private startHeartbeat(): void {
     this.stopHeartbeat();
-    
+
+    let consecutiveFailures = 0;
+    const maxFailures = 3;
+
     this.heartbeatTimer = setInterval(async () => {
       if (this.isConnected()) {
         try {
-          // Send ping command to backend
-          await this.send('ping', undefined, 5000);
+          // Send ping command to backend (10s timeout)
+          await this.send('ping', undefined, 10000);
+          consecutiveFailures = 0; // Reset on success
         } catch (err) {
-          console.warn('[WebSocketClient] Heartbeat failed:', err);
-          // If heartbeat fails, trigger reconnect
-          this.handleHeartbeatFailure();
+          consecutiveFailures++;
+          console.warn(`[WebSocketClient] Heartbeat failed (${consecutiveFailures}/${maxFailures}):`, err);
+
+          // Only trigger reconnect after consecutive failures
+          if (consecutiveFailures >= maxFailures) {
+            console.error('[WebSocketClient] Too many heartbeat failures, reconnecting...');
+            this.handleHeartbeatFailure();
+          }
         }
       }
     }, this.options.heartbeatInterval);
@@ -326,8 +335,9 @@ export class WebSocketClient {
    */
   private handleHeartbeatFailure(): void {
     if (this.ws) {
-      // Force close to trigger reconnection
-      this.ws.close(1006, 'Heartbeat timeout');
+      // Use valid close code (1000 = normal closure, or 3000+ for custom)
+      // 1006 is reserved and cannot be used manually
+      this.ws.close(3000, 'Heartbeat timeout');
     }
   }
 
