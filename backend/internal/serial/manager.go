@@ -170,10 +170,13 @@ func (m *Manager) Open(portName string, cfg types.OpenConfig) error {
 		// Map common errors
 		errStr := err.Error()
 		if strings.Contains(errStr, "Access denied") || strings.Contains(errStr, "Permission") {
-			return fmt.Errorf("端口被占用或权限不足")
+			return fmt.Errorf("端口被占用。请检查：1) 其他串口工具是否在使用该端口；2) 是否有其他实例在运行；3) 尝试运行 kill.bat 关闭所有实例")
 		}
 		if strings.Contains(errStr, "not found") || strings.Contains(errStr, "不存在") {
 			return fmt.Errorf("端口不存在")
+		}
+		if strings.Contains(errStr, "busy") || strings.Contains(errStr, "占用") {
+			return fmt.Errorf("端口正忙。请关闭其他串口工具后重试")
 		}
 		return fmt.Errorf("打开端口失败: %w", err)
 	}
