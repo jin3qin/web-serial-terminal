@@ -26,6 +26,19 @@ function newNoticeId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/** 从 localStorage 读取主题偏好 */
+function loadThemePreference(): ThemeMode {
+  try {
+    const stored = localStorage.getItem('spdt:theme');
+    if (stored === 'light' || stored === 'dark') {
+      return stored;
+    }
+  } catch {
+    // localStorage 不可用（隐私模式）
+  }
+  return 'dark'; // 默认暗色主题
+}
+
 export interface UiStoreState {
   themeMode: ThemeMode;
   /** 高级区（RTS/DTR 信号线）是否展开 */
@@ -61,7 +74,7 @@ export interface UiStoreState {
 }
 
 export const useUiStore = create<UiStoreState>((set) => ({
-  themeMode: 'dark',
+  themeMode: loadThemePreference(),
   advancedOpen: false,
   historyOpen: true,
   autoSendOpen: true,

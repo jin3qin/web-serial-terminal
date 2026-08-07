@@ -1,6 +1,6 @@
 /**
  * Connection toolbar: port selector + connect/disconnect + status indicator + refresh + theme toggle.
- * 
+ *
  * WebSocket version - ports come from backend enumeration, no popup required.
  */
 
@@ -17,14 +17,13 @@ import UsbIcon from '@mui/icons-material/Usb';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
-import DarkModeIcon from '@mui/icons-material/DarkMode';
-import LightModeIcon from '@mui/icons-material/LightMode';
 import TuneIcon from '@mui/icons-material/Tune';
 import { useSerialStore } from '@/store/useSerialStore';
 import { useUiStore } from '@/store/useUiStore';
 import { useSerialConnection } from '@/hooks/useSerialConnection';
 import { STATUS_COLORS } from '@/theme/theme';
 import type { ConnectionState } from '@/types/serial';
+import ThemeToggle from './ThemeToggle';
 
 /** State to indicator lamp color */
 function lampColor(state: ConnectionState): string {
@@ -70,12 +69,10 @@ export default function ConnectionToolbar(): JSX.Element {
   const selectPort = useSerialStore((s) => s.selectPort);
   const portLabel = useSerialStore((s) => s.portLabel);
 
-  const themeMode = useUiStore((s) => s.themeMode);
-  const toggleTheme = useUiStore((s) => s.toggleTheme);
   const advancedOpen = useUiStore((s) => s.advancedOpen);
   const setAdvancedOpen = useUiStore((s) => s.setAdvancedOpen);
 
-  const { refreshPorts, connect, disconnect, persist } = useSerialConnection();
+  const { refreshPorts, connect, disconnect } = useSerialConnection();
 
   const isConnected: boolean = connectionState === 'connected';
   const isBusy: boolean =
@@ -96,12 +93,6 @@ export default function ConnectionToolbar(): JSX.Element {
       void connect();
     }
   }, [isConnected, connect, disconnect]);
-
-  /** Handle theme toggle */
-  const handleToggleTheme = useCallback((): void => {
-    toggleTheme();
-    persist();
-  }, [toggleTheme, persist]);
 
   return (
     <Box className="flex flex-wrap items-center gap-2">
@@ -185,11 +176,7 @@ export default function ConnectionToolbar(): JSX.Element {
         </IconButton>
       </Tooltip>
 
-      <Tooltip title={themeMode === 'dark' ? '切换到亮色主题' : '切换到暗色主题'}>
-        <IconButton onClick={handleToggleTheme}>
-          {themeMode === 'dark' ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
-        </IconButton>
-      </Tooltip>
+      <ThemeToggle />
     </Box>
   );
 }

@@ -121,7 +121,7 @@
 
 ### 6. 明暗主题切换（P2-4）
 
-**状态**：⚠️ 部分实现（主题定义已存在，切换开关待实现）
+**状态**：✅ **已完成**
 
 **功能描述**：
 - 主题切换按钮（明/暗两档）
@@ -129,14 +129,15 @@
 - MUI 主题已定义，只需添加切换逻辑
 
 **涉及文件**：
-- `src/store/useUiStore.ts` - 主题状态
-- `src/components/toolbar/ThemeToggle.tsx` - 切换按钮（新增）
-- `src/App.tsx` - 主题应用逻辑
+- `src/store/useUiStore.ts` - 主题状态 ✅
+- `src/components/toolbar/ThemeToggle.tsx` - 切换按钮 ✅
+- `src/components/toolbar/ConnectionToolbar.tsx` - 集成切换按钮 ✅
+- `src/main.tsx` - 主题应用逻辑 ✅（已存在）
 
 **验收标准**：
-1. 点击切换按钮，主题在明/暗之间切换
-2. 刷新页面后主题保持
-3. 所有组件颜色正确切换
+1. 点击切换按钮，主题在明/暗之间切换 ✅
+2. 刷新页面后主题保持 ✅
+3. 所有组件颜色正确切换 ✅
 
 ---
 
