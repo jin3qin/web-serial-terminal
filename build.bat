@@ -71,7 +71,7 @@ if not exist "go.sum" (
     go mod download
 )
 
-go build -ldflags="-H windowsgui -s -w" -o "..\dist\serial-debug-tool.exe" .
+go build -ldflags="-s -w" -o "..\dist\serial-debug-tool.exe" .
 if errorlevel 1 (
     echo [ERROR] Go build failed
     cd ..

@@ -54,7 +54,7 @@ echo "  Building Go backend..."
 echo "  Output: ../dist/serial-debug-tool.exe"
 
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
-    go build -ldflags="-H windowsgui -s -w -X main.Version=$VERSION" \
+    go build -ldflags="-s -w -X main.Version=$VERSION" \
     -o ../dist/serial-debug-tool.exe .
 
 if [ $? -ne 0 ]; then

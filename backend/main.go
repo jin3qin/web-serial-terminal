@@ -87,7 +87,25 @@ func main() {
 
 	// Start server
 	serverAddr := fmt.Sprintf(":%d", port)
-	log.Printf("Serial Debug Tool v%s starting on http://localhost:%d", Version, port)
+
+	// Display startup information
+	fmt.Println()
+	fmt.Println("╔════════════════════════════════════════════╗")
+	fmt.Printf("║  Serial Debug Tool v%-16s       ║\n", Version)
+	fmt.Println("╚════════════════════════════════════════════╝")
+	fmt.Println()
+	fmt.Printf("  🌐 Web Interface: http://localhost:%d\n", port)
+	fmt.Println("  📝 Log file: See console output above")
+	fmt.Println()
+	fmt.Println("  💡 Tips:")
+	fmt.Println("     • Browser should open automatically")
+	fmt.Println("     • Press Ctrl+C to stop the server")
+	fmt.Println("     • Close this window to exit")
+	fmt.Println()
+	fmt.Println("══════════════════════════════════════════════")
+	fmt.Println()
+
+	log.Printf("Server starting on http://localhost:%d", port)
 
 	// Auto-open browser
 	if cfg.AutoOpen {
@@ -107,6 +125,7 @@ func main() {
 
 	go func() {
 		sig := <-quit
+		fmt.Println()
 		log.Printf("Received signal %v, shutting down...", sig)
 
 		// Close serial port if open
@@ -121,6 +140,11 @@ func main() {
 			log.Printf("Error saving config: %v", err)
 		}
 
+		fmt.Println()
+		fmt.Println("══════════════════════════════════════════════")
+		fmt.Println("  Thank you for using Serial Debug Tool! 👋")
+		fmt.Println("══════════════════════════════════════════════")
+		fmt.Println()
 		log.Println("Shutdown complete")
 		os.Exit(0)
 	}()
