@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+backend/static/
+backend/internal/static/dist/
+backend/build/
+
+# Compiled executables
+*.exe
+backend/serial-debug-tool
+
+# Logs
+*.log
+install.log
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+
+# Claude Code
+.claude/
+.workbuddy/memory
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Test coverage
+coverage/
+.nyc_output/
