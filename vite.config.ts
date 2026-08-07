@@ -38,14 +38,5 @@ export default defineConfig({
     target: 'es2020',
     sourcemap: false,
     chunkSizeWarningLimit: 1200,
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          react: ['react', 'react-dom'],
-          mui: ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
-          vendor: ['zustand', 'react-window'],
-        },
-      },
-    },
   },
 });
