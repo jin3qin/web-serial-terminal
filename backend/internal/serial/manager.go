@@ -7,6 +7,7 @@ import (
 	"log"
 	"strings"
 	"sync"
+	"time"
 
 	"go.bug.st/serial"
 	"serial-debug-tool/internal/types"
@@ -163,25 +164,46 @@ func (m *Manager) Open(portName string, cfg types.OpenConfig) error {
 		mode.Parity = serial.NoParity
 	}
 
-	// Flow control (handled via separate SetMode call if needed)
-	// Note: go.bug.st/serial v1.6.0 handles flow control differently
 	// Hardware flow control is enabled via RTS/CTS signals
 
-	// Open the port
-	port, err := serial.Open(portName, mode)
-	if err != nil {
-		// Map common errors
-		errStr := err.Error()
-		if strings.Contains(errStr, "Access denied") || strings.Contains(errStr, "Permission") {
-			return fmt.Errorf("端口被占用。请检查：1) 其他串口工具是否在使用该端口；2) 是否有其他实例在运行；3) 尝试运行 kill.bat 关闭所有实例")
+	// Open the port with timeout protection
+	log.Printf("[Serial] Attempting to open port %s...", portName)
+
+	type openResult struct {
+		port serial.Port
+		err  error
+	}
+
+	resultChan := make(chan openResult, 1)
+
+	go func() {
+		p, e := serial.Open(portName, mode)
+		resultChan <- openResult{port: p, err: e}
+	}()
+
+	// Wait for result with 5 second timeout
+	var port serial.Port
+	select {
+	case result := <-resultChan:
+		if result.err != nil {
+			// Map common errors
+			errStr := result.err.Error()
+			if strings.Contains(errStr, "Access denied") || strings.Contains(errStr, "Permission") {
+				return fmt.Errorf("端口被占用。请检查：1) 其他串口工具是否在使用该端口；2) 是否有其他实例在运行；3) 尝试运行 kill.bat 关闭所有实例")
+			}
+			if strings.Contains(errStr, "not found") || strings.Contains(errStr, "不存在") {
+				return fmt.Errorf("端口不存在")
+			}
+			if strings.Contains(errStr, "busy") || strings.Contains(errStr, "占用") {
+				return fmt.Errorf("端口正忙。请关闭其他串口工具后重试")
+			}
+			return fmt.Errorf("打开端口失败: %w", result.err)
 		}
-		if strings.Contains(errStr, "not found") || strings.Contains(errStr, "不存在") {
-			return fmt.Errorf("端口不存在")
-		}
-		if strings.Contains(errStr, "busy") || strings.Contains(errStr, "占用") {
-			return fmt.Errorf("端口正忙。请关闭其他串口工具后重试")
-		}
-		return fmt.Errorf("打开端口失败: %w", err)
+		port = result.port
+		log.Printf("[Serial] Port %s opened successfully", portName)
+
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("打开端口超时。端口可能被其他程序占用或驱动异常。请尝试：1) 关闭其他串口工具；2) 重新插拔设备；3) 重启电脑")
 	}
 
 	// Create port wrapper
