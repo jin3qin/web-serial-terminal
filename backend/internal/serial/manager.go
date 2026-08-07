@@ -208,12 +208,10 @@ func (m *Manager) Open(portName string, cfg types.OpenConfig) error {
 
 	// Create port wrapper
 	p := newPort(port, portName)
-	
-	// Set disconnect callback on the port
-	m.mu.RLock()
+
+	// Set disconnect callback on the port (already holding write lock)
 	p.onDisconnect = m.onDisconnect
-	m.mu.RUnlock()
-	
+
 	m.currentPort = p
 
 	// Start read loop with data callback
