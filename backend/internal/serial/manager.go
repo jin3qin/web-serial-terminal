@@ -47,15 +47,52 @@ func (m *Manager) ListPorts() ([]types.PortInfo, error) {
 	}
 
 	result := make([]types.PortInfo, 0, len(ports))
-	for _, portName := range ports {
+	for i, portName := range ports {
+		description := getPortDescription(portName, "", "", i)
+
 		info := types.PortInfo{
 			Name:        portName,
-			Description: "串口设备",
+			Description: description,
 		}
 		result = append(result, info)
 	}
 
 	return result, nil
+}
+
+// getPortDescription returns a human-readable port description.
+func getPortDescription(portName, vid, pid string, index int) string {
+	// Check known devices by VID:PID
+	if vid != "" && pid != "" {
+		key := fmt.Sprintf("%s:%s", vid, pid)
+		if name, ok := knownDevices[key]; ok {
+			return name
+		}
+		return fmt.Sprintf("USB 串口 (VID:%s PID:%s)", vid, pid)
+	}
+
+	// Fallback to port name heuristics
+	portUpper := strings.ToUpper(portName)
+	if strings.Contains(portUpper, "CH340") {
+		return "CH340 USB转串口"
+	}
+	if strings.Contains(portUpper, "CH341") {
+		return "CH341 USB转串口"
+	}
+	if strings.Contains(portUpper, "CP210") {
+		return "CP210x USB转串口"
+	}
+	if strings.Contains(portUpper, "FT232") {
+		return "FT232 USB转串口"
+	}
+	if strings.Contains(portUpper, "USB") {
+		return "USB串口设备"
+	}
+	if strings.HasPrefix(portName, "COM") {
+		return "本地串口 " + portName
+	}
+
+	return fmt.Sprintf("串口设备 #%d", index+1)
 }
 
 // knownDevices maps VID:PID to human-readable names.
@@ -77,14 +114,6 @@ var knownDevices = map[string]string{
 	"2E8A:0005": "Raspberry Pi Pico",
 }
 
-// getPortDescription returns a human-readable port name based on VID/PID.
-func getPortDescription(vid, pid string) string {
-	key := fmt.Sprintf("%s:%s", vid, pid)
-	if name, ok := knownDevices[key]; ok {
-		return name
-	}
-	return fmt.Sprintf("USB 串口 (VID:%s PID:%s)", vid, pid)
-}
 
 // Open opens a serial port with the given configuration.
 func (m *Manager) Open(portName string, cfg types.OpenConfig) error {
