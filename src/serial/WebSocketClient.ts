@@ -313,8 +313,8 @@ export class WebSocketClient {
     this.heartbeatTimer = setInterval(async () => {
       if (this.isConnected()) {
         try {
-          // Send ping command to backend (10s timeout)
-          await this.send('ping', undefined, 10000);
+          // Send ping command to backend (15s timeout)
+          await this.send('ping', undefined, 15000);
           consecutiveFailures = 0; // Reset on success
         } catch (err) {
           consecutiveFailures++;
@@ -361,18 +361,25 @@ export class WebSocketClient {
 
   /**
    * Schedule a reconnect attempt.
+   * Implements exponential backoff: 2s → 4s → 8s → 8s...
    */
   private scheduleReconnect(): void {
     this.clearReconnectTimer();
-    
+
     this.reconnectAttempts++;
-    console.log(`[WebSocketClient] Reconnecting in ${this.options.reconnectInterval}ms (attempt ${this.reconnectAttempts})`);
-    
+
+    // Exponential backoff: min(2^attempts * baseInterval, maxInterval)
+    const baseInterval = 2000;
+    const maxInterval = 8000;
+    const delay = Math.min(baseInterval * Math.pow(2, this.reconnectAttempts - 1), maxInterval);
+
+    console.log(`[WebSocketClient] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+
     this.reconnectTimer = setTimeout(() => {
       this.connect().catch(() => {
         // Reconnect failed, will retry if shouldReconnect
       });
-    }, this.options.reconnectInterval);
+    }, delay);
   }
 
   /**
