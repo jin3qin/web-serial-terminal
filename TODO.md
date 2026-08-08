@@ -70,7 +70,7 @@
 
 ### 5. RTS/DTR 信号线控制（P2-5）
 
-**状态**：❌ 未实现
+**状态**：✅ **已完成**
 
 **功能描述**：
 - RTS/DTR 开关控件（可写）
@@ -79,14 +79,22 @@
 - 用于 ESP32/STM32 一键下载复位
 
 **涉及文件**：
-- `src/components/toolbar/SignalControl.tsx` - 信号线控制组件
-- `backend/internal/serial/signals.go` - 后端信号线操作（已部分实现）
-- `src/types/serial.ts` - SignalsStatus 类型
+- `src/components/toolbar/SignalControl.tsx` - 信号线控制组件 ✅
+- `src/components/toolbar/ConnectionToolbar.tsx` - 高级区折叠开关 ✅
+- `src/components/layout/AppLayout.tsx` - 集成 SignalControl ✅
+- `src/hooks/useSerialConnection.ts` - setSignals / pollInputSignals ✅
+
+**实现特性**：
+- DTR / RTS 开关（可写）
+- 一键复位按钮（一键下载时序：DTR=false + RTS=true → 延时 → RTS=false）
+- 输入信号线实时显示（CTS / DSR / DCD / RI，只读）
+- 连接期间每秒轮询输入信号线
+- 收纳在「高级」折叠区
 
 **验收标准**：
-1. RTS 开关点击后，物理引脚电平改变
-2. DTR 开关点击后，物理引脚电平改变
-3. 只读信号线实时显示当前状态
+1. RTS 开关点击后，物理引脚电平改变 ✅
+2. DTR 开关点击后，物理引脚电平改变 ✅
+3. 只读信号线实时显示当前状态 ✅
 
 ---
 
@@ -96,7 +104,7 @@
 
 ### 消息环形缓冲
 
-**状态**：❌ 未实现
+**状态**：✅ **已完成**
 
 **功能描述**：
 - 消息列表上限 5000 条
@@ -104,11 +112,17 @@
 - 避免长时间运行导致内存泄漏
 
 **涉及文件**：
-- `src/store/useMessageStore.ts` - append 方法改造
+- `src/store/useMessageStore.ts` - append 方法改造 ✅
+
+**实现特性**：
+- `maxRecords` 字段存储上限（默认 5000）
+- `trim()` 函数超出上限时丢弃最旧消息
+- append / appendMany / appendSystem 均调用 trim()
+- 防止长时间运行导致内存泄漏
 
 **验收标准**：
-1. 连续接收 6000 条消息后，messages.length === 5000
-2. 保留的是最新的 5000 条
+1. 连续接收 6000 条消息后，messages.length === 5000 ✅
+2. 保留的是最新的 5000 条 ✅
 
 ---
 
