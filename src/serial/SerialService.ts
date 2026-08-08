@@ -180,8 +180,9 @@ export class SerialService {
     }
 
     // Setup data event handler before connecting
+    // Note: Only process RX data. TX data is already recorded in send() to avoid duplicates.
     this.unsubData = this.client.on('data', (event: WsDataEvent) => {
-      if (event.event === 'data' && event.payload) {
+      if (event.event === 'data' && event.payload && event.payload.direction === 'rx') {
         const payload = event.payload;
         // Convert base64 raw data to Uint8Array
         const bytes = this.base64ToBytes(payload.raw);
