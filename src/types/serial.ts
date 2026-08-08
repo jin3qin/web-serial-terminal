@@ -114,26 +114,51 @@ export interface AutoSendConfig {
  * Macro shortcuts
  * ========================================================================== */
 
+/** 快捷指令组 */
+export interface MacroGroup {
+  id: string;
+  name: string;
+  description?: string;
+  /** 排序权重 */
+  order: number;
+}
+
 export interface MacroShortcut {
   id: string;
   label: string;
   payload: string;
   mode: SendMode;
   description: string;
+  /** 所属组ID（undefined表示未分组） */
+  groupId?: string;
 }
 
-export const MAX_MACROS = 20;
+/** 快捷指令存储结构 */
+export interface MacroStorage {
+  version: number;
+  groups: MacroGroup[];
+  macros: MacroShortcut[];
+}
+
+export const MAX_GROUPS = 10;
+export const MAX_MACROS = 50;
+
+export const DEFAULT_GROUPS: readonly MacroGroup[] = [
+  { id: 'at-commands', name: 'AT 指令', order: 0 },
+  { id: 'modbus', name: 'Modbus', order: 1 },
+];
 
 export const DEFAULT_MACROS: readonly MacroShortcut[] = [
-  { id: 'at', label: 'AT', payload: 'AT', mode: 'text', description: '模块握手指令' },
-  { id: 'at-gmr', label: 'AT+GMR', payload: 'AT+GMR', mode: 'text', description: '查询固件版本' },
-  { id: 'at-rst', label: 'AT+RST', payload: 'AT+RST', mode: 'text', description: '软复位' },
+  { id: 'at', label: 'AT', payload: 'AT', mode: 'text', description: '模块握手指令', groupId: 'at-commands' },
+  { id: 'at-gmr', label: 'AT+GMR', payload: 'AT+GMR', mode: 'text', description: '查询固件版本', groupId: 'at-commands' },
+  { id: 'at-rst', label: 'AT+RST', payload: 'AT+RST', mode: 'text', description: '软复位', groupId: 'at-commands' },
   {
     id: 'modbus-read-hr',
     label: 'Modbus 读保持寄存器',
     payload: '01 03 00 00 00 01',
     mode: 'hex',
     description: '从站 1，读地址 0 起 1 个寄存器（不含 CRC）',
+    groupId: 'modbus',
   },
   {
     id: 'modbus-read-coil',
@@ -141,6 +166,7 @@ export const DEFAULT_MACROS: readonly MacroShortcut[] = [
     payload: '01 01 00 00 00 08',
     mode: 'hex',
     description: '从站 1，读地址 0 起 8 个线圈（不含 CRC）',
+    groupId: 'modbus',
   },
 ];
 
@@ -386,6 +412,7 @@ export const STORAGE_KEYS = {
   PROFILE: 'spdt:profile',
   HISTORY: 'spdt:history',
   MACROS: 'spdt:macros',
+  MACRO_STORAGE: 'spdt:macro-storage',
 } as const;
 
 /** Current profile version */

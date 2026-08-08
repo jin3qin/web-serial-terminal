@@ -9,16 +9,20 @@
 import {
   DEFAULT_AUTO_SEND,
   DEFAULT_DISPLAY_OPTIONS,
+  DEFAULT_GROUPS,
   DEFAULT_MACROS,
   DEFAULT_PROFILE,
   DEFAULT_SERIAL_CONFIG,
   DEFAULT_SEND_OPTIONS,
+  MAX_GROUPS,
   MAX_MACROS,
   PERF,
   PROFILE_VERSION,
   STORAGE_KEYS,
   type DisplayOptions,
+  type MacroGroup,
   type MacroShortcut,
+  type MacroStorage,
   type PersistedProfile,
   type SendOptions,
   type SerialConfig,
@@ -255,11 +259,88 @@ function sanitizeMacros(raw: unknown): MacroShortcut[] {
         payload: item.payload,
         mode: item.mode,
         description: item.description,
+        groupId: typeof item.groupId === 'string' ? item.groupId : undefined,
       });
       if (list.length >= MAX_MACROS) break;
     }
   }
   return list.length > 0 ? list : [...DEFAULT_MACROS];
+}
+
+/**
+ * 校验宏分组列表。
+ *
+ * @param raw 未知输入
+ */
+function sanitizeMacroGroups(raw: unknown): MacroGroup[] {
+  if (!Array.isArray(raw)) {
+    return [...DEFAULT_GROUPS];
+  }
+  const list: MacroGroup[] = [];
+  for (const item of raw) {
+    if (
+      isRecord(item) &&
+      typeof item.id === 'string' &&
+      typeof item.name === 'string' &&
+      typeof item.order === 'number'
+    ) {
+      list.push({
+        id: item.id,
+        name: item.name,
+        description: typeof item.description === 'string' ? item.description : undefined,
+        order: item.order,
+      });
+      if (list.length >= MAX_GROUPS) break;
+    }
+  }
+  return list.length > 0 ? list : [...DEFAULT_GROUPS];
+}
+
+/**
+ * 校验宏存储结构。
+ *
+ * @param raw 未知输入
+ */
+function isMacroStorage(raw: unknown): raw is MacroStorage {
+  return (
+    isRecord(raw) &&
+    typeof raw.version === 'number' &&
+    Array.isArray(raw.groups) &&
+    Array.isArray(raw.macros)
+  );
+}
+
+/**
+ * 迁移宏存储数据（支持从旧版本迁移）。
+ *
+ * @param raw 未知输入
+ */
+function migrateMacroStorage(raw: unknown): MacroStorage {
+  // 如果已经是新格式，直接校验返回
+  if (isMacroStorage(raw)) {
+    return {
+      version: 1,
+      groups: sanitizeMacroGroups(raw.groups),
+      macros: sanitizeMacros(raw.macros),
+    };
+  }
+
+  // 如果是旧格式（MacroShortcut[] 数组），迁移到新格式
+  if (Array.isArray(raw)) {
+    const macros = sanitizeMacros(raw);
+    return {
+      version: 1,
+      groups: [...DEFAULT_GROUPS],
+      macros,
+    };
+  }
+
+  // 兜底：返回默认值
+  return {
+    version: 1,
+    groups: [...DEFAULT_GROUPS],
+    macros: [...DEFAULT_MACROS],
+  };
 }
 
 /**
@@ -404,6 +485,63 @@ export function loadMacros(): MacroShortcut[] {
 export function saveMacros(macros: MacroShortcut[]): void {
   try {
     writeRaw(STORAGE_KEYS.MACROS, JSON.stringify(macros.slice(0, MAX_MACROS)));
+  } catch {
+    /* 忽略：写入失败不影响主流程 */
+  }
+}
+
+/**
+ * 读取宏存储数据（支持分组）。
+ *
+ * @returns MacroStorage
+ */
+export function loadMacroStorage(): MacroStorage {
+  // 优先读取新格式
+  const rawNew: string | null = readRaw(STORAGE_KEYS.MACRO_STORAGE);
+  if (rawNew) {
+    try {
+      const parsed: unknown = JSON.parse(rawNew);
+      return migrateMacroStorage(parsed);
+    } catch {
+      removeRaw(STORAGE_KEYS.MACRO_STORAGE);
+    }
+  }
+
+  // 尝试读取旧格式并迁移
+  const rawOld: string | null = readRaw(STORAGE_KEYS.MACROS);
+  if (rawOld) {
+    try {
+      const parsed: unknown = JSON.parse(rawOld);
+      const migrated = migrateMacroStorage(parsed);
+      // 保存迁移后的数据到新格式
+      saveMacroStorage(migrated);
+      return migrated;
+    } catch {
+      removeRaw(STORAGE_KEYS.MACROS);
+    }
+  }
+
+  // 兜底：返回默认值
+  return {
+    version: 1,
+    groups: [...DEFAULT_GROUPS],
+    macros: [...DEFAULT_MACROS],
+  };
+}
+
+/**
+ * 保存宏存储数据（支持分组）。
+ *
+ * @param storage 宏存储数据
+ */
+export function saveMacroStorage(storage: MacroStorage): void {
+  try {
+    const payload: MacroStorage = {
+      version: 1,
+      groups: storage.groups.slice(0, MAX_GROUPS),
+      macros: storage.macros.slice(0, MAX_MACROS),
+    };
+    writeRaw(STORAGE_KEYS.MACRO_STORAGE, JSON.stringify(payload));
   } catch {
     /* 忽略：写入失败不影响主流程 */
   }

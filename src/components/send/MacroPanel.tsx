@@ -1,7 +1,10 @@
 /**
- * 可自定义发送快捷键面板。
+ * 可自定义发送快捷键面板（支持分组）。
  *
  * 功能：
+ * - 支持分组管理（创建、编辑、删除分组）
+ * - 快捷指令可关联到分组
+ * - 分组可折叠/展开
  * - 可编辑按键名称、发送内容（hex/ascii）
  * - 鼠标悬停显示发送的具体内容
  * - 单击回填，双击发送
@@ -35,25 +38,45 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
-import { MAX_MACROS, type MacroShortcut, type SendMode } from '@/types/serial';
+import FolderIcon from '@mui/icons-material/Folder';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import {
+  MAX_GROUPS,
+  MAX_MACROS,
+  type MacroGroup,
+  type MacroShortcut,
+  type MacroStorage,
+  type SendMode,
+} from '@/types/serial';
 import { useMessageStore } from '@/store/useMessageStore';
 import { useSerialStore } from '@/store/useSerialStore';
 import { useUiStore } from '@/store/useUiStore';
 import { useSerialConnection } from '@/hooks/useSerialConnection';
-import { loadMacros, saveMacros } from '@/utils/storage';
+import { loadMacroStorage, saveMacroStorage } from '@/utils/storage';
 
 /** 宏面板 */
 export default function MacroPanel(): JSX.Element {
-  const [macros, setMacros] = useState<MacroShortcut[]>(() => loadMacros());
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [storage, setStorage] = useState<MacroStorage>(() => loadMacroStorage());
+  const [editMacroDialogOpen, setEditMacroDialogOpen] = useState(false);
+  const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
   const [editingMacro, setEditingMacro] = useState<MacroShortcut | null>(null);
-  const [editForm, setEditForm] = useState({
+  const [editingGroup, setEditingGroup] = useState<MacroGroup | null>(null);
+  const [editMacroForm, setEditMacroForm] = useState({
     label: '',
     payload: '',
     mode: 'text' as SendMode,
     description: '',
+    groupId: '' as string,
+  });
+  const [editGroupForm, setEditGroupForm] = useState({
+    name: '',
+    description: '',
   });
   const [locked, setLocked] = useState(true);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(() => {
+    // 默认展开所有分组
+    return new Set(storage.groups.map(g => g.id));
+  });
 
   const setDraft = useMessageStore((s) => s.setDraft);
   const setSendOptions = useMessageStore((s) => s.setSendOptions);
@@ -64,18 +87,31 @@ export default function MacroPanel(): JSX.Element {
 
   const connected: boolean = connectionState === 'connected';
 
-  /** 保存宏列表到 localStorage */
-  const saveMacroList = useCallback(
-    (list: MacroShortcut[]): void => {
-      setMacros(list);
-      saveMacros(list);
+  /** 保存宏存储数据到 localStorage */
+  const saveMacroData = useCallback(
+    (data: MacroStorage): void => {
+      setStorage(data);
+      saveMacroStorage(data);
       persist();
     },
     [persist],
   );
 
+  /** 切换分组折叠状态 */
+  const toggleGroupExpand = useCallback((groupId: string): void => {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(groupId)) {
+        next.delete(groupId);
+      } else {
+        next.add(groupId);
+      }
+      return next;
+    });
+  }, []);
+
   /** 单击：已连接则发送，未连接则回填 */
-  const handleClick = useCallback(
+  const handleMacroClick = useCallback(
     (item: MacroShortcut): void => {
       setSendOptions({ mode: item.mode });
       setDraft(item.payload);
@@ -86,82 +122,172 @@ export default function MacroPanel(): JSX.Element {
     [setSendOptions, setDraft, connected, send],
   );
 
-  /** 打开编辑对话框（新增或编辑） */
-  const handleOpenEdit = useCallback(
-    (macro?: MacroShortcut): void => {
+  /** 打开编辑快捷指令对话框 */
+  const handleOpenEditMacro = useCallback(
+    (macro?: MacroShortcut, defaultGroupId?: string): void => {
       if (macro) {
         setEditingMacro(macro);
-        setEditForm({
+        setEditMacroForm({
           label: macro.label,
           payload: macro.payload,
           mode: macro.mode,
           description: macro.description,
+          groupId: macro.groupId || '',
         });
       } else {
         setEditingMacro(null);
-        setEditForm({ label: '', payload: '', mode: 'text', description: '' });
+        setEditMacroForm({
+          label: '',
+          payload: '',
+          mode: 'text',
+          description: '',
+          groupId: defaultGroupId || '',
+        });
       }
-      setEditDialogOpen(true);
+      setEditMacroDialogOpen(true);
     },
     [],
   );
 
-  /** 保存编辑 */
-  const handleSaveEdit = useCallback((): void => {
-    if (!editForm.label.trim() || !editForm.payload.trim()) {
+  /** 保存快捷指令编辑 */
+  const handleSaveEditMacro = useCallback((): void => {
+    if (!editMacroForm.label.trim() || !editMacroForm.payload.trim()) {
       return;
     }
 
     const newMacro: MacroShortcut = {
       id: editingMacro?.id || `macro-${Date.now()}`,
-      label: editForm.label.trim(),
-      payload: editForm.payload.trim(),
-      mode: editForm.mode,
-      description: editForm.description.trim(),
+      label: editMacroForm.label.trim(),
+      payload: editMacroForm.payload.trim(),
+      mode: editMacroForm.mode,
+      description: editMacroForm.description.trim(),
+      groupId: editMacroForm.groupId || undefined,
     };
 
-    let newList: MacroShortcut[];
+    let newMacros: MacroShortcut[];
     if (editingMacro) {
       // 编辑现有宏
-      newList = macros.map((m) => (m.id === editingMacro.id ? newMacro : m));
+      newMacros = storage.macros.map((m) => (m.id === editingMacro.id ? newMacro : m));
     } else {
       // 新增宏
-      if (macros.length >= MAX_MACROS) {
+      if (storage.macros.length >= MAX_MACROS) {
         return;
       }
-      newList = [...macros, newMacro];
+      newMacros = [...storage.macros, newMacro];
     }
 
-    saveMacroList(newList);
-    setEditDialogOpen(false);
-  }, [editForm, editingMacro, macros, saveMacroList]);
+    saveMacroData({ ...storage, macros: newMacros });
+    setEditMacroDialogOpen(false);
+  }, [editMacroForm, editingMacro, storage, saveMacroData]);
 
-  /** 删除宏 */
-  const handleDelete = useCallback(
+  /** 删除快捷指令 */
+  const handleDeleteMacro = useCallback(
     (id: string): void => {
-      const newList = macros.filter((m) => m.id !== id);
-      saveMacroList(newList);
+      const newMacros = storage.macros.filter((m) => m.id !== id);
+      saveMacroData({ ...storage, macros: newMacros });
     },
-    [macros, saveMacroList],
+    [storage, saveMacroData],
+  );
+
+  /** 打开编辑分组对话框 */
+  const handleOpenEditGroup = useCallback(
+    (group?: MacroGroup): void => {
+      if (group) {
+        setEditingGroup(group);
+        setEditGroupForm({
+          name: group.name,
+          description: group.description || '',
+        });
+      } else {
+        setEditingGroup(null);
+        setEditGroupForm({ name: '', description: '' });
+      }
+      setEditGroupDialogOpen(true);
+    },
+    [],
+  );
+
+  /** 保存分组编辑 */
+  const handleSaveEditGroup = useCallback((): void => {
+    if (!editGroupForm.name.trim()) {
+      return;
+    }
+
+    const newGroup: MacroGroup = {
+      id: editingGroup?.id || `group-${Date.now()}`,
+      name: editGroupForm.name.trim(),
+      description: editGroupForm.description.trim() || undefined,
+      order: editingGroup?.order ?? storage.groups.length,
+    };
+
+    let newGroups: MacroGroup[];
+    if (editingGroup) {
+      // 编辑现有分组
+      newGroups = storage.groups.map((g) => (g.id === editingGroup.id ? newGroup : g));
+    } else {
+      // 新增分组
+      if (storage.groups.length >= MAX_GROUPS) {
+        return;
+      }
+      newGroups = [...storage.groups, newGroup];
+    }
+
+    saveMacroData({ ...storage, groups: newGroups });
+    setEditGroupDialogOpen(false);
+  }, [editGroupForm, editingGroup, storage, saveMacroData]);
+
+  /** 删除分组 */
+  const handleDeleteGroup = useCallback(
+    (groupId: string): void => {
+      const newGroups = storage.groups.filter((g) => g.id !== groupId);
+      // 将该分组下的快捷指令设置为未分组
+      const newMacros = storage.macros.map((m) =>
+        m.groupId === groupId ? { ...m, groupId: undefined } : m,
+      );
+      saveMacroData({ ...storage, groups: newGroups, macros: newMacros });
+      // 从展开列表中移除
+      setExpandedGroups(prev => {
+        const next = new Set(prev);
+        next.delete(groupId);
+        return next;
+      });
+    },
+    [storage, saveMacroData],
   );
 
   /** 生成 Tooltip 内容 */
   const getTooltipContent = useCallback(
     (item: MacroShortcut): string => {
       const modeLabel = item.mode === 'hex' ? 'HEX' : '文本';
-      return `${item.description}\n发送内容（${modeLabel}）：${item.payload}`;
+      const group = storage.groups.find(g => g.id === item.groupId);
+      const groupLabel = group ? `分组：${group.name}\n` : '';
+      return `${groupLabel}${item.description}\n发送内容（${modeLabel}）：${item.payload}`;
     },
-    [],
+    [storage.groups],
   );
+
+  /** 获取分组下的快捷指令 */
+  const getMacrosByGroup = useCallback(
+    (groupId?: string): MacroShortcut[] => {
+      return storage.macros.filter((m) =>
+        groupId === undefined ? !m.groupId : m.groupId === groupId,
+      );
+    },
+    [storage.macros],
+  );
+
+  /** 获取未分组的快捷指令 */
+  const ungroupedMacros = getMacrosByGroup(undefined);
 
   return (
     <Box className="flex flex-col">
+      {/* 标题栏 */}
       <Box className="flex items-center gap-1 px-2 py-1">
         <IconButton onClick={() => setMacroOpen(!macroOpen)}>
           {macroOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
         </IconButton>
         <Typography variant="caption" color="text.secondary">
-          快捷指令（{macros.length}/{MAX_MACROS}）· {connected ? '单击发送' : '单击回填'}
+          快捷指令（{storage.macros.length}/{MAX_MACROS}）· {connected ? '单击发送' : '单击回填'}
         </Typography>
         <Box className="grow" />
         <IconButton
@@ -171,72 +297,269 @@ export default function MacroPanel(): JSX.Element {
         >
           {locked ? <LockIcon fontSize="small" /> : <LockOpenIcon fontSize="small" />}
         </IconButton>
-        <IconButton
-          size="small"
-          onClick={() => handleOpenEdit()}
-          disabled={macros.length >= MAX_MACROS || locked}
-        >
-          <AddIcon fontSize="small" />
-        </IconButton>
+        {!locked && (
+          <>
+            <IconButton
+              size="small"
+              onClick={() => handleOpenEditGroup()}
+              disabled={storage.groups.length >= MAX_GROUPS}
+              title="添加分组"
+            >
+              <FolderIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={() => handleOpenEditMacro()}
+              disabled={storage.macros.length >= MAX_MACROS}
+              title="添加快捷指令"
+            >
+              <AddIcon fontSize="small" />
+            </IconButton>
+          </>
+        )}
       </Box>
 
+      {/* 快捷指令列表 */}
       <Collapse in={macroOpen} unmountOnExit>
-        {macros.length === 0 ? (
+        {storage.groups.length === 0 && storage.macros.length === 0 ? (
           <Typography variant="caption" color="text.secondary" className="block px-4 pb-2">
             暂无快捷指令，点击 + 添加
           </Typography>
         ) : (
-          <Box className="flex flex-wrap gap-2 px-3 pb-2">
-            {macros.map((item) => (
-              <Box key={item.id} className="flex items-center gap-1">
-                <Tooltip
-                  title={<Typography variant="caption" style={{ whiteSpace: 'pre-line' }}>{getTooltipContent(item)}</Typography>}
-                  arrow
-                  placement="top"
+          <Box className="pb-2">
+            {/* 渲染分组 */}
+            {storage.groups
+              .sort((a, b) => a.order - b.order)
+              .map((group) => {
+                const groupMacros = getMacrosByGroup(group.id);
+                const isExpanded = expandedGroups.has(group.id);
+
+                return (
+                  <Box key={group.id} className="mb-1">
+                    {/* 分组标题 */}
+                    <Box
+                      className="flex items-center gap-1 px-3 py-1 cursor-pointer hover:bg-opacity-10"
+                      sx={{
+                        bgcolor: 'action.hover',
+                        borderBottom: 1,
+                        borderColor: 'divider',
+                      }}
+                      onClick={() => toggleGroupExpand(group.id)}
+                    >
+                      <IconButton size="small" onClick={(e) => {
+                        e.stopPropagation();
+                        toggleGroupExpand(group.id);
+                      }}>
+                        {isExpanded ? <FolderOpenIcon fontSize="small" /> : <FolderIcon fontSize="small" />}
+                      </IconButton>
+                      <Typography variant="caption" fontWeight="medium">
+                        {group.name} ({groupMacros.length})
+                      </Typography>
+                      {!locked && (
+                        <Box className="flex gap-1 ml-auto">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEditMacro(undefined, group.id);
+                            }}
+                            disabled={storage.macros.length >= MAX_MACROS}
+                            sx={{ padding: '2px' }}
+                          >
+                            <AddIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEditGroup(group);
+                            }}
+                            sx={{ padding: '2px' }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteGroup(group.id);
+                            }}
+                            sx={{ padding: '2px' }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      )}
+                    </Box>
+
+                    {/* 分组内容 */}
+                    <Collapse in={isExpanded} unmountOnExit>
+                      {groupMacros.length === 0 ? (
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          className="block px-4 py-2"
+                        >
+                          暂无快捷指令
+                        </Typography>
+                      ) : (
+                        <Box className="flex flex-wrap gap-2 px-3 py-2">
+                          {groupMacros.map((item) => (
+                            <Box key={item.id} className="flex items-center gap-1">
+                              <Tooltip
+                                title={
+                                  <Typography variant="caption" style={{ whiteSpace: 'pre-line' }}>
+                                    {getTooltipContent(item)}
+                                  </Typography>
+                                }
+                                arrow
+                                placement="top"
+                              >
+                                <Chip
+                                  label={item.label}
+                                  variant="outlined"
+                                  clickable
+                                  onClick={() => handleMacroClick(item)}
+                                />
+                              </Tooltip>
+                              {!locked && (
+                                <>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleOpenEditMacro(item)}
+                                    sx={{ padding: '2px' }}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleDeleteMacro(item.id)}
+                                    sx={{ padding: '2px' }}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </>
+                              )}
+                            </Box>
+                          ))}
+                        </Box>
+                      )}
+                    </Collapse>
+                  </Box>
+                );
+              })}
+
+            {/* 未分组的快捷指令 */}
+            {ungroupedMacros.length > 0 && (
+              <Box className="mb-1">
+                <Box
+                  className="flex items-center gap-1 px-3 py-1 cursor-pointer"
+                  sx={{
+                    bgcolor: 'action.hover',
+                    borderBottom: 1,
+                    borderColor: 'divider',
+                  }}
+                  onClick={() => toggleGroupExpand('ungrouped')}
                 >
-                  <Chip
-                    label={item.label}
-                    variant="outlined"
-                    clickable
-                    onClick={() => handleClick(item)}
-                  />
-                </Tooltip>
-                {!locked && (
-                  <>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleOpenEdit(item)}
-                      sx={{ padding: '2px' }}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      onClick={() => handleDelete(item.id)}
-                      sx={{ padding: '2px' }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </>
-                )}
+                  <IconButton size="small">
+                    {expandedGroups.has('ungrouped') ? (
+                      <ExpandLessIcon fontSize="small" />
+                    ) : (
+                      <ExpandMoreIcon fontSize="small" />
+                    )}
+                  </IconButton>
+                  <Typography variant="caption" fontWeight="medium">
+                    未分组 ({ungroupedMacros.length})
+                  </Typography>
+                </Box>
+                <Collapse
+                  in={expandedGroups.has('ungrouped')}
+                  unmountOnExit
+                >
+                  <Box className="flex flex-wrap gap-2 px-3 py-2">
+                    {ungroupedMacros.map((item) => (
+                      <Box key={item.id} className="flex items-center gap-1">
+                        <Tooltip
+                          title={
+                            <Typography variant="caption" style={{ whiteSpace: 'pre-line' }}>
+                              {getTooltipContent(item)}
+                            </Typography>
+                          }
+                          arrow
+                          placement="top"
+                        >
+                          <Chip
+                            label={item.label}
+                            variant="outlined"
+                            clickable
+                            onClick={() => handleMacroClick(item)}
+                          />
+                        </Tooltip>
+                        {!locked && (
+                          <>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleOpenEditMacro(item)}
+                              sx={{ padding: '2px' }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleDeleteMacro(item.id)}
+                              sx={{ padding: '2px' }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                </Collapse>
               </Box>
-            ))}
+            )}
           </Box>
         )}
       </Collapse>
 
-      {/* 编辑对话框 */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
+      {/* 编辑快捷指令对话框 */}
+      <Dialog
+        open={editMacroDialogOpen}
+        onClose={() => setEditMacroDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
         <DialogTitle>{editingMacro ? '编辑快捷指令' : '添加快捷指令'}</DialogTitle>
         <DialogContent>
           <Box className="flex flex-col gap-3 pt-2">
             <TextField
               label="按键名称"
-              value={editForm.label}
-              onChange={(e) => setEditForm({ ...editForm, label: e.target.value })}
+              value={editMacroForm.label}
+              onChange={(e) => setEditMacroForm({ ...editMacroForm, label: e.target.value })}
               fullWidth
               placeholder="例如：AT 测试"
             />
+
+            <FormControl fullWidth>
+              <InputLabel>所属分组</InputLabel>
+              <Select
+                value={editMacroForm.groupId}
+                onChange={(e) =>
+                  setEditMacroForm({ ...editMacroForm, groupId: e.target.value })
+                }
+                label="所属分组"
+              >
+                <MenuItem value="">
+                  <em>未分组</em>
+                </MenuItem>
+                {storage.groups.map((g) => (
+                  <MenuItem key={g.id} value={g.id}>
+                    {g.name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
             <FormControl component="fieldset">
               <Typography variant="caption" color="text.secondary" className="mb-1">
@@ -244,8 +567,10 @@ export default function MacroPanel(): JSX.Element {
               </Typography>
               <RadioGroup
                 row
-                value={editForm.mode}
-                onChange={(e) => setEditForm({ ...editForm, mode: e.target.value as SendMode })}
+                value={editMacroForm.mode}
+                onChange={(e) =>
+                  setEditMacroForm({ ...editMacroForm, mode: e.target.value as SendMode })
+                }
               >
                 <FormControlLabel value="text" control={<Radio size="small" />} label="文本" />
                 <FormControlLabel value="hex" control={<Radio size="small" />} label="HEX" />
@@ -254,30 +579,73 @@ export default function MacroPanel(): JSX.Element {
 
             <TextField
               label="发送内容"
-              value={editForm.payload}
-              onChange={(e) => setEditForm({ ...editForm, payload: e.target.value })}
+              value={editMacroForm.payload}
+              onChange={(e) => setEditMacroForm({ ...editMacroForm, payload: e.target.value })}
               fullWidth
               multiline
               minRows={2}
               maxRows={4}
-              placeholder={editForm.mode === 'hex' ? '例如：01 03 00 00 00 01' : '例如：AT+GMR'}
+              placeholder={editMacroForm.mode === 'hex' ? '例如：01 03 00 00 00 01' : '例如：AT+GMR'}
             />
 
             <TextField
               label="描述（可选）"
-              value={editForm.description}
-              onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+              value={editMacroForm.description}
+              onChange={(e) =>
+                setEditMacroForm({ ...editMacroForm, description: e.target.value })
+              }
               fullWidth
               placeholder="鼠标悬停时显示的提示文字"
             />
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>取消</Button>
+          <Button onClick={() => setEditMacroDialogOpen(false)}>取消</Button>
           <Button
-            onClick={handleSaveEdit}
+            onClick={handleSaveEditMacro}
             variant="contained"
-            disabled={!editForm.label.trim() || !editForm.payload.trim()}
+            disabled={!editMacroForm.label.trim() || !editMacroForm.payload.trim()}
+          >
+            保存
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 编辑分组对话框 */}
+      <Dialog
+        open={editGroupDialogOpen}
+        onClose={() => setEditGroupDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>{editingGroup ? '编辑分组' : '添加分组'}</DialogTitle>
+        <DialogContent>
+          <Box className="flex flex-col gap-3 pt-2">
+            <TextField
+              label="分组名称"
+              value={editGroupForm.name}
+              onChange={(e) => setEditGroupForm({ ...editGroupForm, name: e.target.value })}
+              fullWidth
+              placeholder="例如：AT 指令"
+            />
+
+            <TextField
+              label="描述（可选）"
+              value={editGroupForm.description}
+              onChange={(e) =>
+                setEditGroupForm({ ...editGroupForm, description: e.target.value })
+              }
+              fullWidth
+              placeholder="分组的简要描述"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditGroupDialogOpen(false)}>取消</Button>
+          <Button
+            onClick={handleSaveEditGroup}
+            variant="contained"
+            disabled={!editGroupForm.name.trim()}
           >
             保存
           </Button>
