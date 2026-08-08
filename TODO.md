@@ -6,7 +6,7 @@
 
 ### 1. 配置持久化（P1-6）
 
-**状态**：❌ 未实现
+**状态**：✅ **已完成**
 
 **功能描述**：
 - 保存连接参数、发送选项、显示选项到 localStorage
@@ -14,20 +14,27 @@
 - 支持配置版本迁移（避免兼容性问题）
 
 **涉及文件**：
-- `src/utils/storage.ts` - localStorage 封装与版本迁移
-- `src/hooks/useSerialConnection.ts` - 连接时保存配置
-- `src/types/serial.ts` - `PersistedProfile` 类型定义
+- `src/utils/storage.ts` - localStorage 封装与版本迁移 ✅
+- `src/hooks/useSerialConnection.ts` - 连接时保存配置 ✅
+- `src/types/serial.ts` - `PersistedProfile` 类型定义 ✅（已存在）
+
+**实现特性**：
+- localStorage 不可用时降级为内存存储（隐私模式兼容）
+- 配置校验与补全（防止损坏数据导致崩溃）
+- 版本迁移机制（PROFILE_VERSION）
+- 连接成功、断开连接时自动保存
+- 应用启动时自动恢复配置
 
 **验收标准**：
-1. 修改波特率后刷新页面，波特率保持修改后的值
-2. 切换 HEX 显示模式后刷新，仍为 HEX 模式
-3. localStorage 损坏时不崩溃，回退默认值
+1. 修改波特率后刷新页面，波特率保持修改后的值 ✅
+2. 切换 HEX 显示模式后刷新，仍为 HEX 模式 ✅
+3. localStorage 损坏时不崩溃，回退默认值 ✅
 
 ---
 
 ### 2. 发送历史（P1-2）
 
-**状态**：❌ 未实现
+**状态**：✅ **已完成**
 
 **功能描述**：
 - 记录最近 50 条发送内容（去重，最新在前）
@@ -37,46 +44,25 @@
 - 历史记录持久化到 localStorage
 
 **涉及文件**：
-- `src/components/send/SendHistoryList.tsx` - 历史列表组件
-- `src/store/useMessageStore.ts` - history 数组与 pushHistory 方法
-- `src/utils/storage.ts` - 历史持久化
-
-**验收标准**：
-1. 发送 10 条内容，历史列表显示 10 条（最新在上）
-2. 点击历史项，输入框被填充
-3. 双击历史项，立即发送
-4. 刷新页面后历史仍在
-
----
-
-
-## 第二优先级（编码增强）
-
-### 4. GBK 编码支持（P1-3）
-
-**状态**：✅ **已完成**
-
-**功能描述**：
-- 集成 `gbk.js` 库（懒加载，不影响主包体积）
-- 支持 GBK 编码（解码已用原生 `TextDecoder('gbk')`）
-- 编码失败时降级为 UTF-8 并提示用户
-
-**涉及文件**：
-- `src/utils/codec.ts` - 编码函数改造 ✅
-- `src/hooks/useSerialConnection.ts` - 发送时使用 GBK 编码 ✅
-- `package.json` - 添加 `gbk.js` 依赖 ✅
+- `src/components/send/SendHistoryList.tsx` - 历史列表组件 ✅
+- `src/store/useMessageStore.ts` - history 数组与 pushHistory 方法 ✅
+- `src/utils/storage.ts` - 历史持久化 ✅
+- `src/hooks/useSerialConnection.ts` - 发送时添加历史 ✅
 
 **实现特性**：
-- 懒加载 GBK 编码器（`loadGbkEncoder()`），只在用户选择 GBK 编码时才加载
-- 编码失败自动降级为 UTF-8，并返回 warning 提示
-- 解码使用浏览器原生 `TextDecoder('gbk')`，无需额外依赖
-- 异步编码 API（`encodeTextAsync`）支持等待 GBK 库加载完成
-- 幂等加载（并发安全，只加载一次）
+- 发送成功后自动添加到历史（最新在前）
+- 去重机制（相同内容自动提升到首位）
+- 上限 50 条，超出丢弃最旧
+- 单击回填、双击直发
+- 删除单条、清空全部
+- 可折叠展开
+- 自动持久化到 localStorage
 
 **验收标准**：
-1. 选择 GBK 编码，发送中文"你好"，设备收到 `C4 E3 BA C3` ✅
-2. 库加载失败时降级为 UTF-8，并显示橙色提示 ✅
-3. 懒加载不增加首屏加载时间 ✅
+1. 发送 10 条内容，历史列表显示 10 条（最新在上） ✅
+2. 点击历史项，输入框被填充 ✅
+3. 双击历史项，立即发送 ✅
+4. 刷新页面后历史仍在 ✅
 
 ---
 
@@ -144,15 +130,3 @@
 3. 重连间隔递增（2s → 4s → 8s）
 
 ---
-
-## 实现顺序建议
-
-推荐按以下顺序实现：
-
-1. **配置持久化**（P1-6）- 基础设施，其他功能依赖
-2. **发送历史**（P1-2）- 提升日常使用效率
-3. **自动发送**（P1-1）- 常用功能
-4. **GBK 编码支持**（P1-3）- 编码增强
-5. **RTS/DTR 信号控制**（P2-5）- 高级功能
-6. **明暗主题切换**（P2-4）- 体验优化
-7. **架构优化**（环形缓冲、心跳优化）- 稳定性提升
