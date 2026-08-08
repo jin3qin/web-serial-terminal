@@ -111,6 +111,40 @@ export interface AutoSendConfig {
 }
 
 /* ==========================================================================
+ * Macro shortcuts
+ * ========================================================================== */
+
+export interface MacroShortcut {
+  id: string;
+  label: string;
+  payload: string;
+  mode: SendMode;
+  description: string;
+}
+
+export const MAX_MACROS = 20;
+
+export const DEFAULT_MACROS: readonly MacroShortcut[] = [
+  { id: 'at', label: 'AT', payload: 'AT', mode: 'text', description: '模块握手指令' },
+  { id: 'at-gmr', label: 'AT+GMR', payload: 'AT+GMR', mode: 'text', description: '查询固件版本' },
+  { id: 'at-rst', label: 'AT+RST', payload: 'AT+RST', mode: 'text', description: '软复位' },
+  {
+    id: 'modbus-read-hr',
+    label: 'Modbus 读保持寄存器',
+    payload: '01 03 00 00 00 01',
+    mode: 'hex',
+    description: '从站 1，读地址 0 起 1 个寄存器（不含 CRC）',
+  },
+  {
+    id: 'modbus-read-coil',
+    label: 'Modbus 读线圈',
+    payload: '01 01 00 00 00 08',
+    mode: 'hex',
+    description: '从站 1，读地址 0 起 8 个线圈（不含 CRC）',
+  },
+];
+
+/* ==========================================================================
  * Statistics and persistence
  * ========================================================================== */
 
@@ -132,6 +166,7 @@ export interface PersistedProfile {
   autoSend: Omit<AutoSendConfig, 'enabled' | 'sentCount'>;
   history: string[];
   themeMode: ThemeMode;
+  macros: MacroShortcut[];
 }
 
 /* ==========================================================================
@@ -350,6 +385,7 @@ export const PERF = {
 export const STORAGE_KEYS = {
   PROFILE: 'spdt:profile',
   HISTORY: 'spdt:history',
+  MACROS: 'spdt:macros',
 } as const;
 
 /** Current profile version */
@@ -368,4 +404,5 @@ export const DEFAULT_PROFILE: PersistedProfile = {
   },
   history: [],
   themeMode: 'dark',
+  macros: [...DEFAULT_MACROS],
 };

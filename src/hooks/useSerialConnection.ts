@@ -25,7 +25,7 @@ import { createDataRecord, useMessageStore } from '@/store/useMessageStore';
 import { useUiStore, type NoticeSeverity } from '@/store/useUiStore';
 import { hexToBytes } from '@/utils/hex';
 import { encodeTextAsync, type EncodeResult } from '@/utils/codec';
-import { loadProfile, saveProfile } from '@/utils/storage';
+import { loadProfile, saveProfile, loadMacros } from '@/utils/storage';
 
 /** Public API */
 export interface SerialConnectionApi {
@@ -103,6 +103,7 @@ function collectProfile(): PersistedProfile {
     },
     history: [...message.history],
     themeMode: ui.themeMode,
+    macros: loadMacros(),
   };
 }
 

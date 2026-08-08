@@ -9,13 +9,16 @@
 import {
   DEFAULT_AUTO_SEND,
   DEFAULT_DISPLAY_OPTIONS,
+  DEFAULT_MACROS,
   DEFAULT_PROFILE,
   DEFAULT_SERIAL_CONFIG,
   DEFAULT_SEND_OPTIONS,
+  MAX_MACROS,
   PERF,
   PROFILE_VERSION,
   STORAGE_KEYS,
   type DisplayOptions,
+  type MacroShortcut,
   type PersistedProfile,
   type SendOptions,
   type SerialConfig,
@@ -228,6 +231,38 @@ function sanitizeHistory(raw: unknown): string[] {
 }
 
 /**
+ * 校验宏列表。
+ *
+ * @param raw 未知输入
+ */
+function sanitizeMacros(raw: unknown): MacroShortcut[] {
+  if (!Array.isArray(raw)) {
+    return [...DEFAULT_MACROS];
+  }
+  const list: MacroShortcut[] = [];
+  for (const item of raw) {
+    if (
+      isRecord(item) &&
+      typeof item.id === 'string' &&
+      typeof item.label === 'string' &&
+      typeof item.payload === 'string' &&
+      (item.mode === 'text' || item.mode === 'hex') &&
+      typeof item.description === 'string'
+    ) {
+      list.push({
+        id: item.id,
+        label: item.label,
+        payload: item.payload,
+        mode: item.mode,
+        description: item.description,
+      });
+      if (list.length >= MAX_MACROS) break;
+    }
+  }
+  return list.length > 0 ? list : [...DEFAULT_MACROS];
+}
+
+/**
  * 版本迁移。当前只有 version 1，未来新增版本在此逐级升级。
  *
  * @param raw 反序列化后的原始对象
@@ -245,6 +280,7 @@ function migrate(raw: unknown): PersistedProfile {
     autoSend: sanitizeAutoSend(record.autoSend),
     history: sanitizeHistory(record.history),
     themeMode,
+    macros: sanitizeMacros(record.macros),
   };
 }
 
@@ -334,9 +370,41 @@ export function saveHistory(history: string[]): void {
 export function clearAll(): void {
   removeRaw(STORAGE_KEYS.PROFILE);
   removeRaw(STORAGE_KEYS.HISTORY);
+  removeRaw(STORAGE_KEYS.MACROS);
 }
 
 /** 存储是否可用（供 UI 提示「配置不会被保存」） */
 export function isPersistenceAvailable(): boolean {
   return isStorageAvailable();
+}
+
+/**
+ * 读取宏列表。
+ *
+ * @returns 宏列表
+ */
+export function loadMacros(): MacroShortcut[] {
+  const raw: string | null = readRaw(STORAGE_KEYS.MACROS);
+  if (!raw) {
+    return [...DEFAULT_MACROS];
+  }
+  try {
+    return sanitizeMacros(JSON.parse(raw));
+  } catch {
+    removeRaw(STORAGE_KEYS.MACROS);
+    return [...DEFAULT_MACROS];
+  }
+}
+
+/**
+ * 保存宏列表。
+ *
+ * @param macros 宏列表
+ */
+export function saveMacros(macros: MacroShortcut[]): void {
+  try {
+    writeRaw(STORAGE_KEYS.MACROS, JSON.stringify(macros.slice(0, MAX_MACROS)));
+  } catch {
+    /* 忽略：写入失败不影响主流程 */
+  }
 }
