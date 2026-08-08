@@ -51,16 +51,47 @@ export default function App(): JSX.Element {
     void serialConnectionApi.initialize();
   }, []);
 
-  // 页面关闭前保存配置
+  // 页面关闭前自动断开设备连接并保存配置
   useEffect(() => {
-    const handler = (): void => {
+    const handleBeforeUnload = (): void => {
+      // 如果设备处于连接状态，自动断开连接
+      if (connectionState === 'connected') {
+        serialConnectionApi.disconnect().catch(() => {
+          // 忽略断开连接时的错误
+        });
+      }
+      // 保存配置
       serialConnectionApi.persist();
     };
-    window.addEventListener('beforeunload', handler);
-    return (): void => {
-      window.removeEventListener('beforeunload', handler);
+
+    const handlePageHide = (): void => {
+      // pagehide 事件作为备选，确保移动端也能正常工作
+      if (connectionState === 'connected') {
+        serialConnectionApi.disconnect().catch(() => {
+          // 忽略错误
+        });
+      }
     };
-  }, []);
+
+    const handleVisibilityChange = (): void => {
+      // 当页面隐藏时（如切换标签页、最小化窗口），也断开连接
+      if (document.visibilityState === 'hidden' && connectionState === 'connected') {
+        serialConnectionApi.disconnect().catch(() => {
+          // 忽略错误
+        });
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('pagehide', handlePageHide);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return (): void => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('pagehide', handlePageHide);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [connectionState]);
 
   if (connectionState === 'unsupported') {
     return (
