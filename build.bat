@@ -108,7 +108,7 @@ set "BUILD_ATTEMPT=1"
 set "MAX_ATTEMPTS=2"
 
 :BuildLoop
-go build -ldflags="-s -w" -o "..\dist\serial-debug-tool.exe" .
+go build -ldflags="-H windowsgui -s -w" -o "..\dist\serial-debug-tool.exe" .
 if not errorlevel 1 (
     REM Build succeeded
     goto BuildSuccess

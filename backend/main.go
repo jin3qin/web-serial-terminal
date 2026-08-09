@@ -10,12 +10,15 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
 	"serial-debug-tool/internal/browser"
 	"serial-debug-tool/internal/config"
+	"serial-debug-tool/internal/singleton"
 	"serial-debug-tool/internal/static"
+	"serial-debug-tool/internal/systray"
 	"serial-debug-tool/internal/ws"
 )
 
@@ -25,7 +28,24 @@ var (
 	BuildTime = "unknown"
 )
 
+const AppName = "SerialDebugTool"
+
 func main() {
+	// Check for single instance - if already running, just open browser
+	if singleton.IsRunning(AppName) {
+		exePath, err := os.Executable()
+		if err == nil {
+			cfgMgr := config.NewManager(exePath)
+			_ = cfgMgr.Load()
+			cfg := cfgMgr.Get()
+			url := fmt.Sprintf("http://localhost:%d", cfg.Port)
+			_ = browser.OpenURL(url)
+			fmt.Println("已在运行，打开浏览器...")
+		}
+		return
+	}
+	_ = singleton.CreateLockFile(AppName)
+
 	// Get executable path for config resolution
 	exePath, err := os.Executable()
 	if err != nil {
@@ -99,15 +119,16 @@ func main() {
 
 	log.Printf("Server starting on http://localhost:%d", port)
 
-	// Auto-open browser
+	// Start tray icon (this replaces auto-open browser)
+	url := fmt.Sprintf("http://localhost:%d", port)
+	tray := systray.New(url, Version)
+	go tray.Run()
+
+	// Auto-open browser on first launch
 	if cfg.AutoOpen {
-		url := fmt.Sprintf("http://localhost:%d", port)
 		go func() {
-			// Wait a moment for server to start
-			// In production, we'd check health endpoint
-			if err := browser.OpenURL(url); err != nil {
-				log.Printf("Failed to open browser: %v", err)
-			}
+			time.Sleep(500 * time.Millisecond) // Wait for server
+			_ = browser.OpenURL(url)
 		}()
 	}
 
@@ -127,6 +148,9 @@ func main() {
 		if err := cfgMgr.Save(); err != nil {
 			log.Printf("Error saving config: %v", err)
 		}
+
+		// Clean up singleton lock file
+		_ = singleton.RemoveLockFile(AppName)
 
 		fmt.Println()
 		fmt.Println("══════════════════════════════════════════════")
