@@ -15,7 +15,7 @@
 - ✅ 连接状态指示
 - ✅ 断开连接
 
-#### P1 增强功能（部分完成）
+#### P1 增强功能（已完成 ✅）
 - ✅ **时间戳显示**：`HH:mm:ss.SSS` 格式，可开关
 - ✅ **日志导出**：导出为 `.txt` 文件
 - ✅ **虚拟滚动**：使用 `react-window` 优化高频数据渲染
@@ -25,10 +25,17 @@
 - ✅ **配置持久化**：参数保存到 localStorage，刷新后恢复
 - ✅ **多编码支持**：UTF-8 / GBK 编码（懒加载），解码失败自动降级
 
-#### P2 高级功能（部分完成）
+#### P2 高级功能（已完成 ✅）
 - ✅ **明暗主题**：主题切换按钮，持久化到 localStorage
 - ✅ **RTS/DTR 信号线控制**：一键下载复位、输入信号线显示
-- ❌ **宏面板**：快捷指令（预留）
+- ✅ **快捷指令面板**：
+  - 支持分组管理（创建、编辑、删除、折叠/展开）
+  - 快捷指令可关联分组，支持文本/HEX 模式
+  - 鼠标悬停显示详细内容，单击回填/发送
+  - 配置导入导出（JSON 格式），支持数据校验
+  - 配置持久化到 localStorage
+- ✅ **多窗口多设备**：支持同时打开多个窗口连接不同设备，数据隔离
+- ✅ **自动断开**：页面关闭/刷新时自动断开串口连接
 - ❌ **数据曲线**：实时波形显示（预留）
 
 ### 待实现功能
@@ -169,7 +176,7 @@ server {
 ```
 src/
 ├── main.tsx                 # 入口：ThemeProvider + CssBaseline + 错误边界
-├── App.tsx                  # 顶层组装：环境探测分支 + profile 初始化
+├── App.tsx                  # 顶层组装：环境探测分支 + profile 初始化 + 页面关闭自动断开
 ├── index.css                # Tailwind 指令 + 等宽字体 + 滚动条
 ├── theme/theme.ts           # MUI 明暗双主题
 ├── types/serial.ts          # 全局唯一类型源
@@ -177,9 +184,19 @@ src/
 │   ├── SerialService.ts     # Web Serial 全封装 + 合帧 + 幂等关闭协议
 │   └── serialSupport.ts     # 环境探测与端口友好名
 ├── store/                   # Zustand 状态层
-├── utils/                   # 纯函数工具（hex / codec / format / storage / exporter / crc）
+├── utils/                   # 纯函数工具
+│   ├── hex.ts               # HEX 编解码（唯一入口）
+│   ├── codec.ts             # UTF-8/GBK 编码（唯一入口）
+│   ├── format.ts            # 时间戳格式化
+│   ├── storage.ts           # localStorage 持久化
+│   ├── macroExporter.ts     # 快捷指令配置导入导出
+│   ├── exporter.ts          # 日志导出
+│   └── crc.ts               # CRC 校验
 ├── hooks/                   # 编排层
+│   └── useSerialConnection.ts  # 串口连接逻辑（支持多窗口独立实例）
 └── components/              # 视图层
+    └── send/
+        └── MacroPanel.tsx   # 快捷指令面板（分组管理 + 导入导出）
 ```
 
 ## 架构约定（贡献者必读）
@@ -192,7 +209,7 @@ src/
 
 ## 已知限制
 
-- 单端口 MVP，多标签页/多端口并发暂未实现（数据结构已预留 `sessionId`）。
+- **多窗口多设备**：Web 版本通过后端 WebSocket 实现，每个窗口独立管理串口；桌面版每个窗口独立运行。
 - GBK **解码**使用浏览器原生 `TextDecoder('gbk')`；GBK **编码**依赖懒加载的 `gbk.js`，加载失败时自动降级为 UTF-8 并提示。
 - 接收报文不落盘（仅内存环形缓冲 5000 条 + 手动导出），避免 localStorage 爆容量。
-- 数据曲线（DataChart）与宏面板（MacroPanel）为 P2 预留占位。
+- 数据曲线（DataChart）为预留占位，暂未实现。

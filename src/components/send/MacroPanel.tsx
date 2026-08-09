@@ -40,6 +40,8 @@ import LockIcon from '@mui/icons-material/Lock';
 import LockOpenIcon from '@mui/icons-material/LockOpen';
 import FolderIcon from '@mui/icons-material/Folder';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
+import UploadIcon from '@mui/icons-material/Upload';
+import DownloadIcon from '@mui/icons-material/Download';
 import {
   MAX_GROUPS,
   MAX_MACROS,
@@ -53,6 +55,7 @@ import { useSerialStore } from '@/store/useSerialStore';
 import { useUiStore } from '@/store/useUiStore';
 import { useSerialConnection } from '@/hooks/useSerialConnection';
 import { loadMacroStorage, saveMacroStorage } from '@/utils/storage';
+import { exportMacroConfig, importMacroConfig, type ImportResult } from '@/utils/macroExporter';
 
 /** 宏面板 */
 export default function MacroPanel(): JSX.Element {
@@ -77,6 +80,8 @@ export default function MacroPanel(): JSX.Element {
     // 默认展开所有分组
     return new Set(storage.groups.map(g => g.id));
   });
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   const setDraft = useMessageStore((s) => s.setDraft);
   const setSendOptions = useMessageStore((s) => s.setSendOptions);
@@ -255,6 +260,42 @@ export default function MacroPanel(): JSX.Element {
     [storage, saveMacroData],
   );
 
+  /** 导出配置 */
+  const handleExport = useCallback((): void => {
+    exportMacroConfig(storage);
+    useUiStore.getState().notify('配置已导出', 'success', 2500);
+  }, [storage]);
+
+  /** 打开文件选择器导入配置 */
+  const handleImportClick = useCallback((): void => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const result = await importMacroConfig(file);
+        setImportResult(result);
+        setImportDialogOpen(true);
+      }
+    };
+    input.click();
+  }, []);
+
+  /** 确认导入 */
+  const handleConfirmImport = useCallback((): void => {
+    if (importResult?.success && importResult.data) {
+      saveMacroData(importResult.data);
+      useUiStore.getState().notify(
+        `成功导入 ${importResult.stats?.groups} 个分组、${importResult.stats?.macros} 个快捷指令`,
+        'success',
+        3000
+      );
+    }
+    setImportDialogOpen(false);
+    setImportResult(null);
+  }, [importResult, saveMacroData]);
+
   /** 生成 Tooltip 内容 */
   const getTooltipContent = useCallback(
     (item: MacroShortcut): string => {
@@ -299,6 +340,20 @@ export default function MacroPanel(): JSX.Element {
         </IconButton>
         {!locked && (
           <>
+            <IconButton
+              size="small"
+              onClick={handleImportClick}
+              title="导入配置"
+            >
+              <UploadIcon fontSize="small" />
+            </IconButton>
+            <IconButton
+              size="small"
+              onClick={handleExport}
+              title="导出配置"
+            >
+              <DownloadIcon fontSize="small" />
+            </IconButton>
             <IconButton
               size="small"
               onClick={() => handleOpenEditGroup()}
@@ -649,6 +704,38 @@ export default function MacroPanel(): JSX.Element {
           >
             保存
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* 导入确认对话框 */}
+      <Dialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>导入快捷指令配置</DialogTitle>
+        <DialogContent>
+          {importResult?.success ? (
+            <Box>
+              <Typography gutterBottom>配置文件包含：</Typography>
+              <Typography>• {importResult.stats?.groups} 个分组</Typography>
+              <Typography>• {importResult.stats?.macros} 个快捷指令</Typography>
+              <Typography color="warning.main" sx={{ mt: 2 }}>
+                ⚠️ 导入将替换当前所有快捷指令配置
+              </Typography>
+            </Box>
+          ) : (
+            <Typography color="error">{importResult?.error}</Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setImportDialogOpen(false)}>取消</Button>
+          {importResult?.success && (
+            <Button onClick={handleConfirmImport} variant="contained">
+              确认导入
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>
