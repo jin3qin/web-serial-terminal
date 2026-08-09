@@ -67,6 +67,7 @@ const (
 	CodeInvalidConfig       = 1003
 	CodeNotConnected        = 1004
 	CodeWriteFailed         = 1005
+	CodeDeviceLost          = 1006  // Device disconnected unexpectedly
 	CodeWsDisconnected      = 2001
 	CodeInternalError       = 2002
 	CodeUnsupportedCommand  = 2003

@@ -362,7 +362,18 @@ export class SerialService {
   }
 }
 
-/** Global singleton */
+/**
+ * Create a new SerialService instance.
+ * Each call creates a new service - suitable for multi-window scenarios.
+ */
+export function createSerialService(): SerialService {
+  return new SerialService();
+}
+
+/**
+ * Global singleton instance.
+ * @deprecated Use createSerialService() instead for multi-window support
+ */
 export const serialService = new SerialService();
 
 // PortEntry is already exported as interface at line 31

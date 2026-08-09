@@ -13,12 +13,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"serial-debug-tool/internal/serial"
 	"serial-debug-tool/internal/types"
 )
 
 // Handler manages WebSocket connections and message routing.
 type Handler struct {
-	manager    SerialPortManager
 	clients    map[*websocket.Conn]*Session
 	mu         sync.RWMutex
 	upgrader   websocket.Upgrader
@@ -42,12 +42,15 @@ type Session struct {
 	sendQueue   chan interface{}
 	lastActive  time.Time
 	sendMutex   sync.Mutex
+
+	// Session-specific serial port manager (each client has its own)
+	portManager *serial.Manager
+	portName    string
 }
 
 // NewHandler creates a new WebSocket handler.
-func NewHandler(manager SerialPortManager) *Handler {
+func NewHandler() *Handler {
 	return &Handler{
-		manager: manager,
 		clients: make(map[*websocket.Conn]*Session),
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
@@ -66,11 +69,25 @@ func (h *Handler) HandleConnection(c *gin.Context) {
 		return
 	}
 
+	// Create session-specific serial port manager
+	portMgr := serial.NewManager()
+
 	session := &Session{
-		conn:       conn,
-		sendQueue:  make(chan interface{}, 100),
-		lastActive: time.Now(),
+		conn:        conn,
+		sendQueue:   make(chan interface{}, 100),
+		lastActive:  time.Now(),
+		portManager: portMgr,
 	}
+
+	// Set up data callback for this session
+	portMgr.SetDataCallback(func(direction string, data []byte) {
+		h.onSessionData(session, direction, data)
+	})
+
+	// Set up disconnect callback
+	portMgr.SetDisconnectCallback(func() {
+		h.onSessionDisconnect(session)
+	})
 
 	h.mu.Lock()
 	h.clients[conn] = session
@@ -88,6 +105,13 @@ func (h *Handler) HandleConnection(c *gin.Context) {
 	h.mu.Lock()
 	delete(h.clients, conn)
 	h.mu.Unlock()
+
+	// Close serial port if open
+	if session.portManager != nil && session.portManager.IsOpen() {
+		log.Printf("[WS] Closing serial port for disconnected client: %s", session.portName)
+		session.portManager.Close()
+	}
+
 	conn.Close()
 
 	log.Printf("[WS] Client disconnected, remaining: %d", len(h.clients))
@@ -133,17 +157,17 @@ func (h *Handler) handleMessage(conn *websocket.Conn, session *Session, raw []by
 	var resp Response
 	switch cmd.Cmd {
 	case "list_ports":
-		resp = h.handleListPorts(cmd)
+		resp = h.handleListPorts(cmd, session)
 	case "connect":
-		resp = h.handleConnect(cmd)
+		resp = h.handleConnect(cmd, session)
 	case "disconnect":
-		resp = h.handleDisconnect(cmd)
+		resp = h.handleDisconnect(cmd, session)
 	case "send":
-		resp = h.handleSend(cmd)
+		resp = h.handleSend(cmd, session)
 	case "set_signals":
-		resp = h.handleSetSignals(cmd)
+		resp = h.handleSetSignals(cmd, session)
 	case "get_signals":
-		resp = h.handleGetSignals(cmd)
+		resp = h.handleGetSignals(cmd, session)
 	case "ping":
 		resp = h.handlePing(cmd)
 	default:
@@ -162,19 +186,12 @@ func (h *Handler) send(session *Session, msg interface{}) {
 	}
 }
 
-// Broadcast sends a message to all connected clients.
-func (h *Handler) Broadcast(msg interface{}) {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	for _, session := range h.clients {
-		h.send(session, msg)
-	}
-}
+// Note: Broadcast method removed - each session now has its own port manager
+// and data is routed to specific sessions only
 
 // handleListPorts handles the list_ports command.
-func (h *Handler) handleListPorts(cmd Command) Response {
-	ports, err := h.manager.ListPorts()
+func (h *Handler) handleListPorts(cmd Command, session *Session) Response {
+	ports, err := session.portManager.ListPorts()
 	if err != nil {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeInternalError, err.Error())
 	}
@@ -203,8 +220,8 @@ func (h *Handler) handleListPorts(cmd Command) Response {
 }
 
 // handleConnect handles the connect command.
-func (h *Handler) handleConnect(cmd Command) Response {
-	if h.manager.IsOpen() {
+func (h *Handler) handleConnect(cmd Command, session *Session) Response {
+	if session.portManager.IsOpen() {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeNotConnected, "请先断开当前连接")
 	}
 
@@ -251,12 +268,12 @@ func (h *Handler) handleConnect(cmd Command) Response {
 		FlowControl: payload.FlowControl,
 	}
 
-	err := h.manager.Open(payload.Port, cfg)
+	err := session.portManager.Open(payload.Port, cfg)
 	if err != nil {
 		// Map error to appropriate error code
 		errStr := err.Error()
 		var errorCode int
-		
+
 		if strings.Contains(errStr, "不存在") || strings.Contains(errStr, "not found") {
 			errorCode = CodePortNotFound
 		} else if strings.Contains(errStr, "被占用") || strings.Contains(errStr, "权限") ||
@@ -265,9 +282,12 @@ func (h *Handler) handleConnect(cmd Command) Response {
 		} else {
 			errorCode = CodeInvalidConfig
 		}
-		
+
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, errorCode, err.Error())
 	}
+
+	// Store port name in session
+	session.portName = payload.Port
 
 	return NewSuccessResponse(cmd.Cmd, cmd.Seq, map[string]interface{}{
 		"port":     payload.Port,
@@ -276,22 +296,23 @@ func (h *Handler) handleConnect(cmd Command) Response {
 }
 
 // handleDisconnect handles the disconnect command.
-func (h *Handler) handleDisconnect(cmd Command) Response {
-	if !h.manager.IsOpen() {
+func (h *Handler) handleDisconnect(cmd Command, session *Session) Response {
+	if !session.portManager.IsOpen() {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeNotConnected, "未连接串口")
 	}
 
-	err := h.manager.Close()
+	err := session.portManager.Close()
 	if err != nil {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeInternalError, err.Error())
 	}
 
+	session.portName = ""
 	return NewSuccessResponse(cmd.Cmd, cmd.Seq, nil)
 }
 
 // handleSend handles the send command.
-func (h *Handler) handleSend(cmd Command) Response {
-	if !h.manager.IsOpen() {
+func (h *Handler) handleSend(cmd Command, session *Session) Response {
+	if !session.portManager.IsOpen() {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeNotConnected, "未连接串口")
 	}
 
@@ -319,7 +340,7 @@ func (h *Handler) handleSend(cmd Command) Response {
 		return NewSuccessResponse(cmd.Cmd, cmd.Seq, map[string]int{"bytes": 0})
 	}
 
-	n, err := h.manager.Write(data)
+	n, err := session.portManager.Write(data)
 	if err != nil {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeWriteFailed, err.Error())
 	}
@@ -328,8 +349,8 @@ func (h *Handler) handleSend(cmd Command) Response {
 }
 
 // handleSetSignals handles the set_signals command.
-func (h *Handler) handleSetSignals(cmd Command) Response {
-	if !h.manager.IsOpen() {
+func (h *Handler) handleSetSignals(cmd Command, session *Session) Response {
+	if !session.portManager.IsOpen() {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeNotConnected, "未连接串口")
 	}
 
@@ -338,7 +359,7 @@ func (h *Handler) handleSetSignals(cmd Command) Response {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeInvalidConfig, "参数格式错误")
 	}
 
-	err := h.manager.SetSignals(payload.RTS, payload.DTR)
+	err := session.portManager.SetSignals(payload.RTS, payload.DTR)
 	if err != nil {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeWriteFailed, err.Error())
 	}
@@ -347,12 +368,12 @@ func (h *Handler) handleSetSignals(cmd Command) Response {
 }
 
 // handleGetSignals handles the get_signals command.
-func (h *Handler) handleGetSignals(cmd Command) Response {
-	if !h.manager.IsOpen() {
+func (h *Handler) handleGetSignals(cmd Command, session *Session) Response {
+	if !session.portManager.IsOpen() {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeNotConnected, "未连接串口")
 	}
 
-	signals, err := h.manager.GetSignals()
+	signals, err := session.portManager.GetSignals()
 	if err != nil {
 		return NewErrorResponse(cmd.Cmd, cmd.Seq, CodeInternalError, err.Error())
 	}
@@ -360,8 +381,15 @@ func (h *Handler) handleGetSignals(cmd Command) Response {
 	return NewSuccessResponse(cmd.Cmd, cmd.Seq, signals)
 }
 
-// OnData is called by the serial manager when data is received/transmitted.
+// OnData is no longer used (replaced by session-specific callbacks).
+// Kept for backward compatibility but does nothing.
 func (h *Handler) OnData(direction string, data []byte) {
+	// This method is no longer used
+	// Data routing is now handled by session-specific callbacks
+}
+
+// onSessionData handles data events for a specific session.
+func (h *Handler) onSessionData(session *Session, direction string, data []byte) {
 	now := time.Now().UnixMilli()
 
 	hexStr := formatHex(data)
@@ -380,7 +408,14 @@ func (h *Handler) OnData(direction string, data []byte) {
 		},
 	}
 
-	h.Broadcast(event)
+	// Send only to this session
+	h.send(session, event)
+}
+
+// onSessionDisconnect handles unexpected disconnection for a specific session.
+func (h *Handler) onSessionDisconnect(session *Session) {
+	// Notify the client about the disconnection
+	h.send(session, NewErrorResponse("", 0, CodeDeviceLost, "设备已断开连接"))
 }
 
 // parseHex converts a hex string to bytes.

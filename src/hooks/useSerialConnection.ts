@@ -8,7 +8,7 @@
  * WebSocket-based implementation.
  */
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   LINE_ENDING_TEXT,
   PERF,
@@ -18,7 +18,7 @@ import {
   type PortEntry,
   type SerialOpenInfo,
 } from '@/types/serial';
-import { serialService, type PortEntry as WsPortEntry } from '@/serial/SerialService';
+import { createSerialService, type SerialService, type PortEntry as WsPortEntry } from '@/serial/SerialService';
 import { detect, toPortEntries } from '@/serial/serialSupport';
 import { useSerialStore } from '@/store/useSerialStore';
 import { createDataRecord, useMessageStore } from '@/store/useMessageStore';
@@ -49,6 +49,27 @@ export interface SerialConnectionApi {
   restore: () => void;
   /** Initialize environment and auto-connect */
   initialize: () => Promise<void>;
+}
+
+/* ==========================================================================
+ * Global instance management
+ * ========================================================================== */
+
+/**
+ * Global SerialService instance for backward compatibility.
+ * In multi-window scenarios, each window creates its own instance via createSerialService().
+ */
+let globalSerialService: SerialService | null = null;
+let globalBound: boolean = false;
+
+/**
+ * Get or create the global SerialService instance.
+ */
+function getSerialService(): SerialService {
+  if (!globalSerialService) {
+    globalSerialService = createSerialService();
+  }
+  return globalSerialService;
 }
 
 /* ==========================================================================
@@ -131,14 +152,14 @@ function restore(): void {
  * Event binding
  * ========================================================================== */
 
-let bound: boolean = false;
-
 /** Subscribe to SerialService events */
 function bindSerialEvents(): void {
-  if (bound) return;
-  bound = true;
+  if (globalBound) return;
+  globalBound = true;
 
-  serialService.on('open', (info: SerialOpenInfo): void => {
+  const service = getSerialService();
+
+  service.on('open', (info: SerialOpenInfo): void => {
     const serial = useSerialStore.getState();
     serial.setConnectionState('connected');
     serial.setPortLabel(info.label);
@@ -149,20 +170,20 @@ function bindSerialEvents(): void {
     persist();
   });
 
-  serialService.on('data', (chunk: Uint8Array): void => {
+  service.on('data', (chunk: Uint8Array): void => {
     const encoding = useMessageStore.getState().displayOptions.encoding;
     useMessageStore.getState().append(createDataRecord('rx', chunk, encoding));
     useSerialStore.getState().addRx(chunk.byteLength);
   });
 
-  serialService.on('error', (err: SerialError): void => {
+  service.on('error', (err: SerialError): void => {
     if (err.benign) return;
     useSerialStore.getState().setError(err);
     useMessageStore.getState().appendSystem(err.message, err.code === 'E_DEVICE_LOST' ? 'warning' : 'error');
     useUiStore.getState().notify(err.message, severityOf(err));
   });
 
-  serialService.on('close', (reason: CloseReason): void => {
+  service.on('close', (reason: CloseReason): void => {
     const serial = useSerialStore.getState();
     serial.setConnectionState('idle');
     serial.setPortLabel('');
@@ -196,7 +217,8 @@ async function connectBackend(): Promise<void> {
 
 /** Refresh available ports from backend */
 async function refreshPorts(): Promise<void> {
-  const ports = await serialService.listPorts();
+  const service = getSerialService();
+  const ports = await service.listPorts();
   useSerialStore.getState().setPorts(ports as unknown as import('@/types/serial').PortEntry[]);
 }
 
@@ -219,7 +241,8 @@ async function connect(): Promise<void> {
   useSerialStore.getState().clearError();
 
   try {
-    await serialService.open(entry.id, useSerialStore.getState().config);
+    const service = getSerialService();
+    await service.open(entry.id, useSerialStore.getState().config);
   } catch (err) {
     handleError(err, 'E_OPEN_FAILED');
     useSerialStore.getState().setConnectionState('error');
@@ -228,16 +251,17 @@ async function connect(): Promise<void> {
 
 /** Disconnect from serial port */
 async function disconnect(): Promise<void> {
+  const service = getSerialService();
   const state = useSerialStore.getState().connectionState;
   if (state !== 'connected' && state !== 'error') {
-    if (!serialService.isOpen) {
+    if (!service.isOpen) {
       useSerialStore.getState().setConnectionState('idle');
       return;
     }
   }
   useSerialStore.getState().setConnectionState('disconnecting');
   try {
-    await serialService.close('manual');
+    await service.close('manual');
   } catch (err) {
     handleError(err, 'E_UNKNOWN');
   } finally {
@@ -249,7 +273,8 @@ async function disconnect(): Promise<void> {
 
 /** Send data */
 async function send(payload: string): Promise<boolean> {
-  if (!serialService.isOpen) {
+  const service = getSerialService();
+  if (!service.isOpen) {
     handleError(new SerialError('E_NOT_CONNECTED'), 'E_NOT_CONNECTED');
     return false;
   }
@@ -280,7 +305,7 @@ async function send(payload: string): Promise<boolean> {
   }
 
   try {
-    const written = await serialService.write(bytes);
+    const written = await service.write(bytes);
     useSerialStore.getState().addTx(written);
     useMessageStore.getState().append(createDataRecord('tx', bytes, usedEncoding));
     useMessageStore.getState().pushHistory(payload);
@@ -295,7 +320,8 @@ async function send(payload: string): Promise<boolean> {
 /** Set output signals */
 async function setSignals(s: { dataTerminalReady?: boolean; requestToSend?: boolean }): Promise<void> {
   try {
-    await serialService.setSignals(s);
+    const service = getSerialService();
+    await service.setSignals(s);
     useSerialStore.getState().setOutputSignals(s);
   } catch (err) {
     handleError(err, 'E_WRITE_FAILED');
@@ -304,9 +330,10 @@ async function setSignals(s: { dataTerminalReady?: boolean; requestToSend?: bool
 
 /** Poll input signals */
 async function pollInputSignals(): Promise<void> {
-  if (!serialService.isOpen) return;
+  const service = getSerialService();
+  if (!service.isOpen) return;
   try {
-    const signals: SerialInputSignals = await serialService.getSignals();
+    const signals: SerialInputSignals = await service.getSignals();
     useSerialStore.getState().setInputSignals({
       clearToSend: Boolean(signals.clearToSend),
       dataSetReady: Boolean(signals.dataSetReady),

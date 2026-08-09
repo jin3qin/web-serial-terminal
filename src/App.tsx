@@ -73,23 +73,12 @@ export default function App(): JSX.Element {
       }
     };
 
-    const handleVisibilityChange = (): void => {
-      // 当页面隐藏时（如切换标签页、最小化窗口），也断开连接
-      if (document.visibilityState === 'hidden' && connectionState === 'connected') {
-        serialConnectionApi.disconnect().catch(() => {
-          // 忽略错误
-        });
-      }
-    };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
     window.addEventListener('pagehide', handlePageHide);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return (): void => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('pagehide', handlePageHide);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [connectionState]);
 

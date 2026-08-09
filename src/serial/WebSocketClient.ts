@@ -393,19 +393,28 @@ export class WebSocketClient {
   }
 }
 
-// Global singleton instance
-let wsClient: WebSocketClient | null = null;
+/**
+ * Create a new WebSocket client instance.
+ * Each call creates a new client - suitable for multi-window scenarios.
+ */
+export function createWebSocketClient(): WebSocketClient {
+  return new WebSocketClient({
+    url: WebSocketClient.getWebSocketUrl(),
+    reconnectInterval: 2000,
+    maxReconnectAttempts: 5,
+  });
+}
 
 /**
- * Get the global WebSocket client instance.
+ * Get or create the global WebSocket client instance.
+ * Kept for backward compatibility but deprecated.
+ * @deprecated Use createWebSocketClient() instead
  */
+let wsClient: WebSocketClient | null = null;
 export function getWebSocketClient(): WebSocketClient {
   if (!wsClient) {
-    wsClient = new WebSocketClient({
-      url: WebSocketClient.getWebSocketUrl(),
-      reconnectInterval: 2000,
-      maxReconnectAttempts: 5,
-    });
+    console.warn('[WebSocketClient] getWebSocketClient() is deprecated, use createWebSocketClient() instead');
+    wsClient = createWebSocketClient();
   }
   return wsClient;
 }

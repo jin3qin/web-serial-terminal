@@ -15,7 +15,6 @@ import (
 
 	"serial-debug-tool/internal/browser"
 	"serial-debug-tool/internal/config"
-	"serial-debug-tool/internal/serial"
 	"serial-debug-tool/internal/static"
 	"serial-debug-tool/internal/ws"
 )
@@ -48,16 +47,9 @@ func main() {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	// Initialize serial port manager
-	serialMgr := serial.NewManager()
-
 	// Initialize WebSocket handler
-	wsHandler := ws.NewHandler(serialMgr)
-
-	// Set up data callback
-	serialMgr.SetDataCallback(func(direction string, data []byte) {
-		wsHandler.OnData(direction, data)
-	})
+	// Note: Each WebSocket session will create its own serial port manager
+	wsHandler := ws.NewHandler()
 
 	// Setup Gin router
 	r := gin.New()
@@ -128,12 +120,8 @@ func main() {
 		fmt.Println()
 		log.Printf("Received signal %v, shutting down...", sig)
 
-		// Close serial port if open
-		if serialMgr.IsOpen() {
-			if err := serialMgr.Close(); err != nil {
-				log.Printf("Error closing serial port: %v", err)
-			}
-		}
+		// Note: Each session manages its own serial port
+		// No global manager to close
 
 		// Save config
 		if err := cfgMgr.Save(); err != nil {
