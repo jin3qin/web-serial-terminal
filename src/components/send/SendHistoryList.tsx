@@ -85,42 +85,44 @@ export default function SendHistoryList(): JSX.Element {
       </Box>
 
       <Collapse in={historyOpen} unmountOnExit>
-        {history.length === 0 ? (
-          <Typography variant="caption" color="text.secondary" className="block px-4 pb-2">
-            暂无历史记录
-          </Typography>
-        ) : (
-          <List dense disablePadding sx={{ maxHeight: 220, overflow: 'auto' }}>
-            {history.map((text) => (
-              <ListItem
-                key={text}
-                disablePadding
-                secondaryAction={
-                  <Tooltip title="删除这条历史">
-                    <IconButton edge="end" onClick={() => handleRemove(text)}>
-                      <DeleteOutlineIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                }
-              >
-                <ListItemButton
-                  onClick={() => handleFill(text)}
-                  onDoubleClick={() => handleDirectSend(text)}
-                  dense
+        <Box sx={{ height: 210, overflow: 'auto' }}>
+          {history.length === 0 ? (
+            <Typography variant="caption" color="text.secondary" className="block px-4 py-2">
+              暂无历史记录
+            </Typography>
+          ) : (
+            <List dense disablePadding>
+              {history.map((text) => (
+                <ListItem
+                  key={text}
+                  disablePadding
+                  secondaryAction={
+                    <Tooltip title="删除这条历史">
+                      <IconButton edge="end" onClick={() => handleRemove(text)}>
+                        <DeleteOutlineIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  }
                 >
-                  <ListItemText
-                    primary={text}
-                    primaryTypographyProps={{
-                      noWrap: true,
-                      className: 'spdt-mono',
-                      sx: { fontSize: 12 },
-                    }}
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
-          </List>
-        )}
+                  <ListItemButton
+                    onClick={() => handleFill(text)}
+                    onDoubleClick={() => handleDirectSend(text)}
+                    dense
+                  >
+                    <ListItemText
+                      primary={text}
+                      primaryTypographyProps={{
+                        noWrap: true,
+                        className: 'spdt-mono',
+                        sx: { fontSize: 12 },
+                      }}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              ))}
+            </List>
+          )}
+        </Box>
       </Collapse>
     </Box>
   );
