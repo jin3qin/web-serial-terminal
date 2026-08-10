@@ -2,7 +2,7 @@
  * 顶层组装：环境探测分支（引导页 vs 主界面）、配置初始化、全局提示宿主。
  */
 
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import Box from '@mui/material/Box';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
@@ -11,6 +11,7 @@ import { useUiStore } from '@/store/useUiStore';
 import { serialConnectionApi } from '@/hooks/useSerialConnection';
 import AppLayout from '@/components/layout/AppLayout';
 import UnsupportedBrowserNotice from '@/components/common/UnsupportedBrowserNotice';
+import SettingsPage from '@/components/settings/SettingsPage';
 
 /** 全局 Snackbar 宿主：一次只展示队列中的第一条 */
 function GlobalSnackbar(): JSX.Element | null {
@@ -45,6 +46,11 @@ function GlobalSnackbar(): JSX.Element | null {
 /** 应用根组件 */
 export default function App(): JSX.Element {
   const connectionState = useSerialStore((s) => s.connectionState);
+
+  // Check if we're on the settings page
+  const isSettingsPage = useMemo(() => {
+    return window.location.pathname === '/settings';
+  }, []);
 
   // 初始化：环境探测 → 配置回填 → 端口枚举（仅执行一次）
   useEffect(() => {
@@ -86,6 +92,16 @@ export default function App(): JSX.Element {
     return (
       <Box className="h-full w-full">
         <UnsupportedBrowserNotice />
+      </Box>
+    );
+  }
+
+  // Render settings page if URL is /settings
+  if (isSettingsPage) {
+    return (
+      <Box className="h-full w-full">
+        <SettingsPage />
+        <GlobalSnackbar />
       </Box>
     );
   }

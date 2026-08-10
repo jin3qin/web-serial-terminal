@@ -8,9 +8,9 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/signal"
 	"syscall"
 	"time"
+	"unsafe"
 
 	"github.com/gin-gonic/gin"
 
@@ -30,36 +30,68 @@ var (
 
 const AppName = "SerialDebugTool"
 
+// Global log file for syncing
+var logFile *os.File
+
 func main() {
+	// Setup log file first - write to executable directory
+	exePath, err := os.Executable()
+	if err != nil {
+		showErrorDialog("启动错误", fmt.Sprintf("无法获取程序路径: %v", err))
+		os.Exit(1)
+	}
+
+	// Create log file
+	logPath := exePath + ".log"
+	logFile, err = os.Create(logPath)
+	if err != nil {
+		showErrorDialog("日志错误", fmt.Sprintf("无法创建日志文件: %v", err))
+	}
+
+	// Write directly to file first to test
+	if logFile != nil {
+		logFile.WriteString("=== 直接写入测试 ===\n")
+		logFile.Sync()
+	}
+
+	// Setup log output - NOTE: don't use MultiWriter with os.Stdout
+	// because windowsgui mode has no console, os.Stdout is invalid
+	if logFile != nil {
+		log.SetOutput(logFile)
+	}
+	log.SetFlags(log.LstdFlags | log.Lmicroseconds)
+
+	log.Println("========================================")
+	log.Printf("程序启动，版本: %s", Version)
+	log.Printf("程序路径: %s", exePath)
+	log.Printf("日志文件: %s", logPath)
+	syncLog()
+
 	// Check for single instance - if already running, just open browser
 	if singleton.IsRunning(AppName) {
-		exePath, err := os.Executable()
-		if err == nil {
-			cfgMgr := config.NewManager(exePath)
-			_ = cfgMgr.Load()
-			cfg := cfgMgr.Get()
-			url := fmt.Sprintf("http://localhost:%d", cfg.Port)
-			_ = browser.OpenURL(url)
-			fmt.Println("已在运行，打开浏览器...")
-		}
+		log.Println("检测到已有实例运行，打开浏览器后退出")
+		syncLog()
+		cfgMgr := config.NewManager(exePath)
+		_ = cfgMgr.Load()
+		cfg := cfgMgr.Get()
+		url := fmt.Sprintf("http://localhost:%d", cfg.Port)
+		_ = browser.OpenURL(url)
 		return
 	}
 	_ = singleton.CreateLockFile(AppName)
-
-	// Get executable path for config resolution
-	exePath, err := os.Executable()
-	if err != nil {
-		log.Fatalf("Failed to get executable path: %v", err)
-	}
+	log.Println("单例检测通过，继续启动...")
+	syncLog()
 
 	// Load configuration
 	cfgMgr := config.NewManager(exePath)
 	if err := cfgMgr.Load(); err != nil {
-		log.Printf("Warning: Failed to load config: %v, using defaults", err)
+		log.Printf("警告: 加载配置失败: %v，使用默认值", err)
 	}
 	cfg := cfgMgr.Get()
+	log.Printf("配置加载完成，端口: %d, 自动打开: %v", cfg.Port, cfg.AutoOpen)
+	syncLog()
 
-	// Setup logging
+	// Setup logging level
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	if cfg.LogLevel == "DEBUG" {
 		gin.SetMode(gin.DebugMode)
@@ -68,7 +100,6 @@ func main() {
 	}
 
 	// Initialize WebSocket handler
-	// Note: Each WebSocket session will create its own serial port manager
 	wsHandler := ws.NewHandler()
 
 	// Setup Gin router
@@ -90,81 +121,144 @@ func main() {
 		})
 	})
 
+	// Config endpoints
+	r.GET("/api/config", func(c *gin.Context) {
+		cfg := cfgMgr.Get()
+		c.JSON(http.StatusOK, gin.H{
+			"port":     cfg.Port,
+			"autoOpen": cfg.AutoOpen,
+		})
+	})
+
+	r.POST("/api/config", func(c *gin.Context) {
+		var req struct {
+			Port     *int  `json:"port"`
+			AutoOpen *bool `json:"autoOpen"`
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request"})
+			return
+		}
+
+		if req.Port != nil {
+			if *req.Port < 1 || *req.Port > 65535 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "port must be between 1 and 65535"})
+				return
+			}
+			cfgMgr.SetPort(*req.Port)
+		}
+		if req.AutoOpen != nil {
+			cfgMgr.SetAutoOpen(*req.AutoOpen)
+		}
+
+		if err := cfgMgr.Save(); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save config"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"message":     "配置已保存，重启后生效",
+			"needRestart": true,
+		})
+	})
+
 	// Find available port
+	log.Printf("开始查找可用端口，配置端口: %d", cfg.Port)
 	port := findAvailablePort(cfg.Port)
 	if port != cfg.Port {
-		log.Printf("Port %d busy, using port %d", cfg.Port, port)
+		log.Printf("端口 %d 被占用，使用端口 %d", cfg.Port, port)
 		cfgMgr.SetPort(port)
 	}
+	log.Printf("使用端口: %d", port)
 
 	// Start server
 	serverAddr := fmt.Sprintf(":%d", port)
+	log.Printf("准备启动服务器: %s", serverAddr)
 
-	// Display startup information
-	fmt.Println()
-	fmt.Println("╔════════════════════════════════════════════╗")
-	fmt.Printf("║  Serial Debug Tool v%-16s       ║\n", Version)
-	fmt.Println("╚════════════════════════════════════════════╝")
-	fmt.Println()
-	fmt.Printf("  🌐 Web Interface: http://localhost:%d\n", port)
-	fmt.Println("  📝 Log file: See console output above")
-	fmt.Println()
-	fmt.Println("  💡 Tips:")
-	fmt.Println("     • Browser should open automatically")
-	fmt.Println("     • Press Ctrl+C to stop the server")
-	fmt.Println("     • Close this window to exit")
-	fmt.Println()
-	fmt.Println("══════════════════════════════════════════════")
-	fmt.Println()
-
-	log.Printf("Server starting on http://localhost:%d", port)
-
-	// Start tray icon (this replaces auto-open browser)
+	// Start HTTP server in a goroutine
 	url := fmt.Sprintf("http://localhost:%d", port)
-	tray := systray.New(url, Version)
-	go tray.Run()
+	go func() {
+		log.Printf("启动 HTTP 服务器: %s", serverAddr)
+		if err := r.Run(serverAddr); err != nil {
+			errorMsg := fmt.Sprintf("服务器启动失败: %v\n\n端口号: %d\n\n请检查端口是否被占用或更改配置文件中的端口号。", err, port)
+			log.Println(errorMsg)
+			showErrorDialog("串口调试工具 - 启动错误", errorMsg)
+			_ = singleton.RemoveLockFile(AppName)
+			singleton.Release()
+			os.Exit(1)
+		}
+	}()
 
 	// Auto-open browser on first launch
 	if cfg.AutoOpen {
 		go func() {
-			time.Sleep(500 * time.Millisecond) // Wait for server
+			time.Sleep(500 * time.Millisecond)
+			log.Println("自动打开浏览器...")
 			_ = browser.OpenURL(url)
 		}()
 	}
 
-	// Graceful shutdown setup
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	// Start tray icon (must run on main thread)
+	log.Println("启动系统托盘...")
+	syncLog()
 
-	go func() {
-		sig := <-quit
-		fmt.Println()
-		log.Printf("Received signal %v, shutting down...", sig)
-
-		// Note: Each session manages its own serial port
-		// No global manager to close
-
-		// Save config
-		if err := cfgMgr.Save(); err != nil {
-			log.Printf("Error saving config: %v", err)
-		}
-
-		// Clean up singleton lock file
-		_ = singleton.RemoveLockFile(AppName)
-
-		fmt.Println()
-		fmt.Println("══════════════════════════════════════════════")
-		fmt.Println("  Thank you for using Serial Debug Tool! 👋")
-		fmt.Println("══════════════════════════════════════════════")
-		fmt.Println()
-		log.Println("Shutdown complete")
-		os.Exit(0)
-	}()
-
-	// Start HTTP server
-	if err := r.Run(serverAddr); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	// Debug: write directly before systray
+	if logFile != nil {
+		logFile.WriteString("=== 即将启动 systray ===\n")
+		logFile.Sync()
 	}
+
+	tray := systray.New(url, Version)
+
+	// Debug: write after New
+	if logFile != nil {
+		logFile.WriteString("=== systray.New 完成 ===\n")
+		logFile.Sync()
+	}
+
+	tray.Run()
+
+	// Debug: write after Run returns
+	if logFile != nil {
+		logFile.WriteString("=== tray.Run 返回 ===\n")
+		logFile.Sync()
+	}
+
+	// Tray quit - clean up and exit
+	log.Println("托盘退出，清理资源...")
+	_ = singleton.RemoveLockFile(AppName)
+	singleton.Release()
+	log.Println("程序退出")
+	syncLog()
+	closeLog()
+}
+
+func syncLog() {
+	if logFile != nil {
+		logFile.Sync()
+	}
+}
+
+func closeLog() {
+	if logFile != nil {
+		logFile.Close()
+	}
+}
+
+// showErrorDialog displays an error message box on Windows
+func showErrorDialog(title, message string) {
+	user32 := syscall.NewLazyDLL("user32.dll")
+	messageBox := user32.NewProc("MessageBoxW")
+
+	titlePtr, _ := syscall.UTF16PtrFromString(title)
+	messagePtr, _ := syscall.UTF16PtrFromString(message)
+
+	messageBox.Call(
+		0,
+		uintptr(unsafe.Pointer(messagePtr)),
+		uintptr(unsafe.Pointer(titlePtr)),
+		0x10, // MB_ICONERROR | MB_OK
+	)
 }
 
 // setupStaticRoutes configures serving of embedded frontend files.
@@ -204,6 +298,28 @@ func setupStaticRoutes(r *gin.Engine) {
 			return
 		}
 		c.Data(http.StatusOK, "image/svg+xml", data)
+	})
+
+	// SPA fallback: serve index.html for any unmatched route (for client-side routing)
+	r.NoRoute(func(c *gin.Context) {
+		// Don't serve index.html for API routes or static assets
+		path := c.Request.URL.Path
+		if len(path) >= 4 && path[:4] == "/api" {
+			c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+			return
+		}
+		if len(path) >= 7 && path[:7] == "/assets" {
+			c.Status(http.StatusNotFound)
+			return
+		}
+
+		// Serve index.html for SPA routes (like /settings)
+		data, err := static.Files.ReadFile("dist/index.html")
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Failed to load index.html")
+			return
+		}
+		c.Data(http.StatusOK, "text/html; charset=utf-8", data)
 	})
 }
 

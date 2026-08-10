@@ -11,6 +11,7 @@ import (
 var (
 	kernel32        = syscall.NewLazyDLL("kernel32.dll")
 	procCreateMutex = kernel32.NewProc("CreateMutexW")
+	globalMutex     *Mutex // Keep mutex alive for the lifetime of the process
 )
 
 // Mutex represents a Windows mutex for single instance.
@@ -39,18 +40,21 @@ func NewMutex(name string) (*Mutex, bool) {
 func (m *Mutex) Close() error {
 	if m.handle != 0 {
 		syscall.CloseHandle(syscall.Handle(m.handle))
+		m.handle = 0
 	}
 	return nil
 }
 
 // IsRunning checks if another instance is already running.
 // Uses a lock file approach as backup.
+// If this is the first instance, it keeps the mutex alive.
 func IsRunning(appName string) bool {
 	// Try mutex first
 	mutex, isFirst := NewMutex("Global\\" + appName)
 	if mutex != nil {
 		if isFirst {
 			// We're the first instance, keep mutex alive
+			globalMutex = mutex
 			return false
 		}
 		// Another instance exists
@@ -59,14 +63,20 @@ func IsRunning(appName string) bool {
 
 	// Fallback: check lock file
 	lockPath := filepath.Join(os.TempDir(), appName+".lock")
-	data, err := os.ReadFile(lockPath)
-	if err == nil {
-		// Lock file exists, check if process is still running
-		// This is a simplified check
+	if _, err := os.Stat(lockPath); err == nil {
+		// Lock file exists, another instance is running
 		return true
 	}
 
 	return false
+}
+
+// Release releases the global mutex (call on exit).
+func Release() {
+	if globalMutex != nil {
+		globalMutex.Close()
+		globalMutex = nil
+	}
 }
 
 // CreateLockFile creates a lock file with the current PID.

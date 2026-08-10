@@ -53,6 +53,7 @@ func (t *Tray) onReady() {
 
 	// Add menu items
 	mOpen := systray.AddMenuItem("打开网页", "在浏览器中打开控制页面")
+	mSettings := systray.AddMenuItem("设置", "配置端口号等设置")
 	systray.AddSeparator()
 	mAbout := systray.AddMenuItem("关于", "显示版本信息")
 	systray.AddSeparator()
@@ -64,6 +65,8 @@ func (t *Tray) onReady() {
 			select {
 			case <-mOpen.ClickedCh:
 				_ = browser.OpenURL(t.url)
+			case <-mSettings.ClickedCh:
+				_ = browser.OpenURL(t.url + "/settings")
 			case <-mAbout.ClickedCh:
 				_ = browser.OpenURL(t.url)
 			case <-mQuit.ClickedCh:

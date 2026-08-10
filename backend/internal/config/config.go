@@ -112,6 +112,13 @@ func (m *Manager) SetPort(port int) {
 	m.mu.Unlock()
 }
 
+// SetAutoOpen updates the auto open setting.
+func (m *Manager) SetAutoOpen(autoOpen bool) {
+	m.mu.Lock()
+	m.config.AutoOpen = autoOpen
+	m.mu.Unlock()
+}
+
 // SetLastSerialConfig persists the last used serial port configuration.
 func (m *Manager) SetLastSerialConfig(port string, baudRate int) {
 	m.mu.Lock()
