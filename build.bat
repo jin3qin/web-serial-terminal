@@ -99,6 +99,26 @@ REM Step 5: Build Go backend (with retry if exe is locked)
 echo [4/4] Building Go backend...
 cd backend
 
+REM Embed Windows application icon into the exe (generates rsrc.syso)
+set "PATH=%PATH%;%USERPROFILE%\go\bin"
+if exist appicon.ico (
+    echo   Embedding application icon...
+
+    REM Check if rsrc is installed
+    where rsrc >nul 2>&1
+    if errorlevel 1 (
+        echo   rsrc not found, installing...
+        go install github.com/akavel/rsrc@latest
+        if errorlevel 1 (
+            echo [WARNING] Failed to install rsrc, skipping icon embedding
+        ) else (
+            rsrc -arch amd64 -ico appicon.ico -o rsrc.syso
+        )
+    ) else (
+        rsrc -arch amd64 -ico appicon.ico -o rsrc.syso
+    )
+)
+
 if not exist "go.sum" (
     go mod download
 )

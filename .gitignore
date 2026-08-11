@@ -6,6 +6,7 @@ dist/
 backend/static/
 backend/internal/static/dist/
 backend/build/
+backend/rsrc.syso
 
 # Compiled executables
 *.exe
@@ -41,3 +42,5 @@ coverage/
 .nyc_output/
 
 docs
+
+**/__pycache__

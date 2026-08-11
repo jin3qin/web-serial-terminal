@@ -48,6 +48,24 @@ echo ""
 echo "[4/4] Building Go backend..."
 cd backend
 
+# 嵌入 Windows 应用图标（生成 rsrc.syso，go build 会自动链接同目录 .syso）
+export PATH="$PATH:$(go env GOPATH)/bin"
+if [ -f appicon.ico ]; then
+    if ! command -v rsrc >/dev/null 2>&1; then
+        echo "  rsrc not found, installing..."
+        go install github.com/akavel/rsrc@latest
+        if [ $? -ne 0 ]; then
+            echo "[WARNING] Failed to install rsrc, skipping icon embedding"
+        else
+            echo "  Embedding application icon..."
+            GOOS=windows rsrc -arch amd64 -ico appicon.ico -o rsrc.syso
+        fi
+    else
+        echo "  Embedding application icon..."
+        GOOS=windows rsrc -arch amd64 -ico appicon.ico -o rsrc.syso
+    fi
+fi
+
 VERSION=$(git describe --tags --always 2>/dev/null || echo "v1.0.0")
 echo "  Version: $VERSION"
 echo "  Building Go backend..."
