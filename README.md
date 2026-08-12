@@ -9,11 +9,13 @@
 
 ## 截图
 
-<!-- 添加截图到 assets/ 目录下，然后更新下面的路径 -->
+**主界面**
 
-| 主界面 | 快捷指令面板 |
-|:---:|:---:|
-| ![主界面](assets/screenshot-main.png) | ![快捷指令](assets/screenshot-macro.png) |
+![主界面](assets/screenshot-main.png)
+
+**快捷指令面板**
+
+![快捷指令面板](assets/screenshot-macro.png)
 
 ## 特性
 
