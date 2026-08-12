@@ -13,7 +13,6 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
-import UsbIcon from '@mui/icons-material/Usb';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import LinkIcon from '@mui/icons-material/Link';
 import LinkOffIcon from '@mui/icons-material/LinkOff';
@@ -97,7 +96,7 @@ export default function ConnectionToolbar(): JSX.Element {
   return (
     <Box className="flex flex-wrap items-center gap-2">
       <Box className="flex items-center gap-2 pr-2">
-        <UsbIcon fontSize="small" color="primary" />
+        <img src="/favicon.ico" alt="logo" style={{ width: 20, height: 20 }} />
         <Typography variant="subtitle2" className="whitespace-nowrap">
           Web Serial Terminal
         </Typography>

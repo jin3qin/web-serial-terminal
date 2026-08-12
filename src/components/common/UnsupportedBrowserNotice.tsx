@@ -15,7 +15,6 @@ import Chip from '@mui/material/Chip';
 import Divider from '@mui/material/Divider';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import HighlightOffIcon from '@mui/icons-material/HighlightOff';
-import UsbIcon from '@mui/icons-material/Usb';
 import { detect } from '@/serial/serialSupport';
 import type { SupportResult } from '@/types/serial';
 
@@ -40,7 +39,7 @@ export default function UnsupportedBrowserNotice(): JSX.Element {
     <Box className="flex h-full w-full items-center justify-center overflow-auto p-6">
       <Paper elevation={3} className="w-full max-w-2xl p-6" sx={{ p: 3 }}>
         <Box className="mb-4 flex items-center gap-2" sx={{ mb: 2 }}>
-          <UsbIcon color="primary" />
+          <img src="/favicon.ico" alt="logo" style={{ width: 24, height: 24 }} />
           <Typography variant="h6">Web Serial Terminal</Typography>
         </Box>
 
