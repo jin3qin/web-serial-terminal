@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # 前端构建检查
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: dist/
+          retention-days: 1
+
+  # 后端构建检查
+  backend:
+    name: Backend Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: backend/go.sum
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-dist
+          path: backend/internal/static/dist/
+
+      - name: Build backend
+        working-directory: backend
+        run: |
+          go mod download
+          CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../dist/web-serial-terminal.exe .
+
+  # 完整构建
+  build:
+    name: Full Build
+    needs: [frontend, backend]
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: backend/go.sum
+
+      - name: Install rsrc
+        run: go install github.com/akavel/rsrc@latest
+
+      - name: Build with build.bat
+        shell: cmd
+        run: build.bat
+
+      - name: Verify build
+        run: |
+          if (Test-Path "dist\web-serial-terminal.exe") {
+            Write-Host "Build successful!"
+            Get-Item "dist\web-serial-terminal.exe" | Select-Object Name, Length
+          } else {
+            Write-Error "Build failed: executable not found"
+            exit 1
+          }
+        shell: powershell

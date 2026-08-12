@@ -99,7 +99,7 @@ export default function ConnectionToolbar(): JSX.Element {
       <Box className="flex items-center gap-2 pr-2">
         <UsbIcon fontSize="small" color="primary" />
         <Typography variant="subtitle2" className="whitespace-nowrap">
-          串口调试工具
+          Web Serial Terminal
         </Typography>
       </Box>
 

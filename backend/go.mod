@@ -1,4 +1,4 @@
-module serial-debug-tool
+module web-serial-terminal
 
 go 1.21
 

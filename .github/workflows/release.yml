@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    name: Build and Release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: backend/go.sum
+
+      - name: Install rsrc
+        run: go install github.com/akavel/rsrc@latest
+
+      - name: Build
+        shell: cmd
+        run: build.bat
+
+      - name: Get version
+        id: version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ steps.version.outputs.VERSION }}
+          body: |
+            ## 更新内容
+
+            请查看 [CHANGELOG.md](CHANGELOG.md) 获取详细更新日志。
+
+            ## 下载
+
+            - `web-serial-terminal.exe` - Windows 桌面版可执行文件
+
+            ## 使用方法
+
+            1. 下载 `web-serial-terminal.exe`
+            2. 双击运行
+            3. 浏览器会自动打开 http://localhost:8080
+            4. 选择串口设备并开始调试
+          files: |
+            dist/web-serial-terminal.exe
+          draft: false
+          prerelease: false

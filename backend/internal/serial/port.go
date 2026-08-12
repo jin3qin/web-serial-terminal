@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"go.bug.st/serial"
-	"serial-debug-tool/internal/types"
+	"web-serial-terminal/internal/types"
 )
 
 // Port wraps a serial port with read loop and frame buffering.

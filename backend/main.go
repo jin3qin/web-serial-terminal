@@ -14,12 +14,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"serial-debug-tool/internal/browser"
-	"serial-debug-tool/internal/config"
-	"serial-debug-tool/internal/singleton"
-	"serial-debug-tool/internal/static"
-	"serial-debug-tool/internal/systray"
-	"serial-debug-tool/internal/ws"
+	"web-serial-terminal/internal/browser"
+	"web-serial-terminal/internal/config"
+	"web-serial-terminal/internal/singleton"
+	"web-serial-terminal/internal/static"
+	"web-serial-terminal/internal/systray"
+	"web-serial-terminal/internal/ws"
 )
 
 // Build-time variables (can be set via -ldflags)
@@ -182,7 +182,7 @@ func main() {
 		if err := r.Run(serverAddr); err != nil {
 			errorMsg := fmt.Sprintf("服务器启动失败: %v\n\n端口号: %d\n\n请检查端口是否被占用或更改配置文件中的端口号。", err, port)
 			log.Println(errorMsg)
-			showErrorDialog("串口调试工具 - 启动错误", errorMsg)
+			showErrorDialog("Web Serial Terminal - 启动错误", errorMsg)
 			_ = singleton.RemoveLockFile(AppName)
 			singleton.Release()
 			os.Exit(1)

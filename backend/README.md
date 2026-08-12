@@ -1,6 +1,6 @@
-# 串口调试工具 · Go 后端网关
+# Web Serial Terminal · Go 后端网关
 
-网页版串口调试工具的后端服务，使用 Go + Gin + WebSocket 实现。
+Web Serial Terminal 的后端服务，使用 Go + Gin + WebSocket 实现。
 
 ## 功能
 
@@ -62,10 +62,10 @@ go run .
 **生产模式:**
 ```bash
 # Windows
-dist\serial-debug-tool.exe
+dist\web-serial-terminal.exe
 
 # Linux
-./dist/serial-debug-tool
+./dist/web-serial-terminal
 ```
 
 ## 配置

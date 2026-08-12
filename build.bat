@@ -5,13 +5,13 @@ cd /d "%~dp0"
 
 echo.
 echo ========================================
-echo   Serial Debug Tool - Build Script
+echo   Web Serial Terminal - Build Script
 echo ========================================
 echo.
 
 REM Step 1: Check and close running process
 echo [0/4] Checking for running instances...
-set "EXE_NAME=serial-debug-tool.exe"
+set "EXE_NAME=web-serial-terminal.exe"
 set "CLOSED=0"
 
 tasklist /FI "IMAGENAME eq %EXE_NAME%" 2>nul | find "%EXE_NAME%" >nul
@@ -128,7 +128,7 @@ set "BUILD_ATTEMPT=1"
 set "MAX_ATTEMPTS=2"
 
 :BuildLoop
-go build -ldflags="-H windowsgui -s -w" -o "..\dist\serial-debug-tool.exe" .
+go build -ldflags="-H windowsgui -s -w" -o "..\dist\web-serial-terminal.exe" .
 if not errorlevel 1 (
     REM Build succeeded
     goto BuildSuccess
@@ -162,9 +162,9 @@ echo ========================================
 echo   Build Success!
 echo ========================================
 echo.
-if exist "dist\serial-debug-tool.exe" (
-    echo   Output: dist\serial-debug-tool.exe
-    for %%a in (dist\serial-debug-tool.exe) do echo   Size: %%~za bytes
+if exist "dist\web-serial-terminal.exe" (
+    echo   Output: dist\web-serial-terminal.exe
+    for %%a in (dist\web-serial-terminal.exe) do echo   Size: %%~za bytes
     if "%CLOSED%" EQU "1" (
         echo.
         echo   [INFO] Previous instance was closed during build

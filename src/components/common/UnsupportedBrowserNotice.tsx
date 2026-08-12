@@ -41,7 +41,7 @@ export default function UnsupportedBrowserNotice(): JSX.Element {
       <Paper elevation={3} className="w-full max-w-2xl p-6" sx={{ p: 3 }}>
         <Box className="mb-4 flex items-center gap-2" sx={{ mb: 2 }}>
           <UsbIcon color="primary" />
-          <Typography variant="h6">网页版串口调试工具</Typography>
+          <Typography variant="h6">Web Serial Terminal</Typography>
         </Box>
 
         <Alert severity="error" sx={{ mb: 2 }}>

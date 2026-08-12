@@ -168,7 +168,7 @@ export default function SettingsPage(): JSX.Element {
               关于
             </Typography>
             <Typography variant="body2">
-              串口调试工具 v1.0.0
+              Web Serial Terminal v1.0.0
             </Typography>
             <Typography variant="body2" color="text.secondary">
               基于 Web Serial API 的串口调试终端

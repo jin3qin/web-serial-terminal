@@ -4,11 +4,11 @@
 
 ### 步骤 1：检查控制台窗口
 
-双击运行 `dist/serial-debug-tool.exe` 后，控制台窗口应该显示：
+双击运行 `dist/web-serial-terminal.exe` 后，控制台窗口应该显示：
 
 ```
 ╔════════════════════════════════════════════╗
-║  Serial Debug Tool v1.0.0                  ║
+║  Web Serial Terminal v1.0.0                ║
 ╚════════════════════════════════════════════╝
 
   🌐 Web Interface: http://localhost:8080

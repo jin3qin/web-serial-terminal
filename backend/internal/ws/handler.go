@@ -13,8 +13,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
-	"serial-debug-tool/internal/serial"
-	"serial-debug-tool/internal/types"
+	"web-serial-terminal/internal/serial"
+	"web-serial-terminal/internal/types"
 )
 
 // Handler manages WebSocket connections and message routing.

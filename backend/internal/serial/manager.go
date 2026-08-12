@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"go.bug.st/serial"
-	"serial-debug-tool/internal/types"
+	"web-serial-terminal/internal/types"
 )
 
 // Manager handles serial port enumeration and lifecycle.

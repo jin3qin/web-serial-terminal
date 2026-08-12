@@ -10,7 +10,7 @@ backend/rsrc.syso
 
 # Compiled executables
 *.exe
-backend/serial-debug-tool
+backend/web-serial-terminal
 
 # Logs
 *.log

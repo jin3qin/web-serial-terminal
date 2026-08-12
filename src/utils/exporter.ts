@@ -39,7 +39,7 @@ export function buildTxt(list: readonly MessageRecord[], opt: ExportOptions): st
   const lines: string[] = [];
   if (opt.withHeader !== false) {
     lines.push('==============================================');
-    lines.push(' 网页版串口调试工具 · 日志导出');
+    lines.push(' Web Serial Terminal · 日志导出');
     lines.push(` 导出时间：${formatDateTime(Date.now())}`);
     lines.push(` 消息条数：${list.length}`);
     lines.push(` 显示模式：${opt.display.displayMode === 'hex' ? 'HEX' : 'ASCII'} / ${opt.display.encoding.toUpperCase()}`);

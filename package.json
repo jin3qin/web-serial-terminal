@@ -1,9 +1,9 @@
 {
-  "name": "web-serial-debug-tool",
+  "name": "web-serial-terminal",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "网页版串口调试工具 · 基于 Web Serial API 的零安装串口调试终端",
+  "description": "Web Serial Terminal · 基于 Web Serial API 的零安装串口调试终端",
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit -p tsconfig.json && vite build",

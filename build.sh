@@ -1,10 +1,10 @@
 #!/bin/bash
-# 串口调试工具 - 构建脚本（Git Bash 版本）
+# Web Serial Terminal - 构建脚本（Git Bash 版本）
 
 set -e  # 遇到错误立即退出
 
 echo "========================================"
-echo "  Serial Debug Tool - Build Script"
+echo "  Web Serial Terminal - Build Script"
 echo "========================================"
 echo ""
 
@@ -69,11 +69,11 @@ fi
 VERSION=$(git describe --tags --always 2>/dev/null || echo "v1.0.0")
 echo "  Version: $VERSION"
 echo "  Building Go backend..."
-echo "  Output: ../dist/serial-debug-tool.exe"
+echo "  Output: ../dist/web-serial-terminal.exe"
 
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 \
     go build -ldflags="-s -w -X main.Version=$VERSION" \
-    -o ../dist/serial-debug-tool.exe .
+    -o ../dist/web-serial-terminal.exe .
 
 if [ $? -ne 0 ]; then
     echo "[ERROR] Go build failed"
@@ -90,13 +90,13 @@ echo "  Build Success!"
 echo "========================================"
 echo ""
 
-if [ -f "dist/serial-debug-tool.exe" ]; then
-    SIZE=$(ls -lh dist/serial-debug-tool.exe | awk '{print $5}')
-    echo "  Output: dist/serial-debug-tool.exe"
+if [ -f "dist/web-serial-terminal.exe" ]; then
+    SIZE=$(ls -lh dist/web-serial-terminal.exe | awk '{print $5}')
+    echo "  Output: dist/web-serial-terminal.exe"
     echo "  Size: $SIZE"
     echo ""
     echo "  Usage:"
-    echo "    1. Double-click dist/serial-debug-tool.exe to start"
+    echo "    1. Double-click dist/web-serial-terminal.exe to start"
     echo "    2. Browser opens automatically at http://localhost:8080"
     echo "    3. Select serial port and start debugging"
 else

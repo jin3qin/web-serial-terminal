@@ -1,6 +1,19 @@
-# 网页版串口调试工具（Web Serial Debug Tool）
+# Web Serial Terminal
 
-基于 **Web Serial API** 的纯前端串口调试终端。零安装、零后端，打开网页即可连接串口设备。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Go Version](https://img.shields.io/badge/Go-%3E%3D1.21-00ADD8?logo=go)](https://go.dev/)
+[![Node Version](https://img.shields.io/badge/Node-%3E%3D18-339933?logo=node.js)](https://nodejs.org/)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
+
+基于 **Web Serial API** 的串口调试终端，支持 Web 版和桌面版。零安装、零后端，打开网页即可连接串口设备。
+
+## 截图
+
+<!-- 添加截图到 assets/ 目录下，然后更新下面的路径 -->
+
+| 主界面 | 快捷指令面板 |
+|:---:|:---:|
+| ![主界面](assets/screenshot-main.png) | ![快捷指令](assets/screenshot-macro.png) |
 
 ## 特性
 
@@ -36,11 +49,6 @@
   - 配置持久化到 localStorage
 - ✅ **多窗口多设备**：支持同时打开多个窗口连接不同设备，数据隔离
 - ✅ **自动断开**：页面关闭/刷新时自动断开串口连接
-- ❌ **数据曲线**：实时波形显示（预留）
-
-### 待实现功能
-
-详细的功能需求、涉及文件、验收标准请查看 [TODO.md](TODO.md)。
 
 ## 运行环境要求
 
@@ -54,20 +62,29 @@
 
 ## 桌面版构建
 
-本项目支持打包为 Windows 桌面应用，一次构建生成独立可执行文件。
+本项目支持打包为 Windows 桌面应用，支持在 Windows、Linux、macOS 上交叉编译。
 
 ### 依赖要求
 
 - **Node.js** 18+ - [下载地址](https://nodejs.org/)
 - **Go** 1.21+ - [下载地址](https://go.dev/dl/)
 
-### 快速构建
-
-运行 `build.bat` 完成完整构建：
+### Windows 构建运行 `build.bat` 完成完整构建：
 
 ```bash
 .\build.bat
 ```
+
+### Linux / macOS 构建
+
+运行 `build.sh` 完成完整构建：
+
+```bash
+chmod +x build.sh
+./build.sh
+```
+
+> **注意**：`build.sh` 使用交叉编译生成 Windows `.exe` 文件，适用于在 Linux/macOS 上为 Windows 构建程序。
 
 ### 构建步骤
 
@@ -83,14 +100,14 @@
 构建完成后，可执行文件位于：
 
 ```
-dist/serial-debug-tool.exe
+dist/web-serial-terminal.exe
 ```
 
 文件大小约 9-10MB。
 
 ### 运行程序
 
-双击 `dist/serial-debug-tool.exe`，程序会：
+双击 `dist/web-serial-terminal.exe`，程序会：
 
 1. 自动打开浏览器访问 http://localhost:8080
 2. 选择串口设备并配置参数
@@ -99,6 +116,26 @@ dist/serial-debug-tool.exe
 ### 手动构建（可选）
 
 如果需要分步构建：
+
+**Windows:**
+
+```bash
+# 1. 安装依赖
+npm install
+
+# 2. 构建前端
+npm run build
+
+# 3. 复制静态文件
+mkdir backend\internal\static\dist
+xcopy /E /I /Y dist backend\internal\static\dist
+
+# 4. 构建后端
+cd backend
+go build -ldflags="-H windowsgui -s -w" -o ..\dist\web-serial-terminal.exe .
+```
+
+**Linux / macOS (交叉编译 Windows 版):**
 
 ```bash
 # 1. 安装依赖
@@ -111,9 +148,9 @@ npm run build
 mkdir -p backend/internal/static/dist
 cp -r dist/* backend/internal/static/dist/
 
-# 4. 构建后端
+# 4. 构建后端（交叉编译 Windows 版）
 cd backend
-go build -ldflags="-H windowsgui -s -w" -o ../dist/serial-debug-tool.exe .
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../dist/web-serial-terminal.exe .
 ```
 
 ### 常见问题
@@ -160,7 +197,7 @@ server {
     ssl_certificate     /path/fullchain.pem;
     ssl_certificate_key /path/privkey.pem;
 
-    root /var/www/serial-debug-tool/dist;
+    root /var/www/web-serial-terminal/dist;
     index index.html;
 
     location / {
