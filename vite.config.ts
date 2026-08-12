@@ -1,6 +1,20 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { execSync } from 'node:child_process';
+
+/**
+ * 获取版本号（优先从 Git Tag 获取）
+ */
+function getVersion(): string {
+  try {
+    return execSync('git describe --tags --always', { encoding: 'utf-8' }).trim();
+  } catch {
+    return 'v1.0.0';
+  }
+}
+
+const APP_VERSION = getVersion();
 
 /**
  * Vite 配置。
@@ -11,6 +25,9 @@ import { fileURLToPath, URL } from 'node:url';
 export default defineConfig({
   base: './',
   plugins: [react()],
+  define: {
+    'import.meta.env.VITE_APP_VERSION': JSON.stringify(APP_VERSION),
+  },
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

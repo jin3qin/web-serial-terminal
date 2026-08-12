@@ -8,7 +8,7 @@
 
 ```
 ╔════════════════════════════════════════════╗
-║  Web Serial Terminal v1.0.0                ║
+║  Web Serial Terminal <version>             ║
 ╚════════════════════════════════════════════╝
 
   🌐 Web Interface: http://localhost:8080

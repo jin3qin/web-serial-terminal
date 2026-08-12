@@ -100,6 +100,9 @@ export default function ConnectionToolbar(): JSX.Element {
         <Typography variant="subtitle2" className="whitespace-nowrap">
           Web Serial Terminal
         </Typography>
+        <Typography variant="caption" color="text.secondary" className="whitespace-nowrap">
+          {import.meta.env.VITE_APP_VERSION}
+        </Typography>
       </Box>
 
       <TextField

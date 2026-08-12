@@ -184,7 +184,7 @@ export function exportMacroConfig(storage: MacroStorage): void {
   const config: MacroExportConfig = {
     ...storage,
     exportedAt: Date.now(),
-    exportedBy: 'Serial Debug Tool v1.0.0',
+    exportedBy: `Web Serial Terminal ${import.meta.env.VITE_APP_VERSION}`,
   };
 
   const json = JSON.stringify(config, null, 2);

@@ -123,12 +123,17 @@ if not exist "go.sum" (
     go mod download
 )
 
+REM Get version from git tag
+for /f "delims=" %%i in ('git describe --tags --always 2^>nul') do set VERSION=%%i
+if not defined VERSION set VERSION=v1.0.0
+echo   Version: %VERSION%
+
 REM Try to build, retry once if exe is locked
 set "BUILD_ATTEMPT=1"
 set "MAX_ATTEMPTS=2"
 
 :BuildLoop
-go build -ldflags="-H windowsgui -s -w" -o "..\dist\web-serial-terminal.exe" .
+go build -ldflags="-H windowsgui -s -w -X main.Version=%VERSION%" -o "..\dist\web-serial-terminal.exe" .
 if not errorlevel 1 (
     REM Build succeeded
     goto BuildSuccess

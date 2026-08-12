@@ -41,6 +41,9 @@ export default function UnsupportedBrowserNotice(): JSX.Element {
         <Box className="mb-4 flex items-center gap-2" sx={{ mb: 2 }}>
           <img src="/favicon.ico" alt="logo" style={{ width: 24, height: 24 }} />
           <Typography variant="h6">Web Serial Terminal</Typography>
+          <Typography variant="caption" color="text.secondary">
+            {import.meta.env.VITE_APP_VERSION}
+          </Typography>
         </Box>
 
         <Alert severity="error" sx={{ mb: 2 }}>
