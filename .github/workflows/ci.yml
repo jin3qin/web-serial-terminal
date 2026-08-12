@@ -18,7 +18,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Install dependencies
@@ -37,6 +37,7 @@ jobs:
   # 后端构建检查
   backend:
     name: Backend Build
+    needs: [frontend]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -72,7 +73,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
 
       - name: Setup Go
