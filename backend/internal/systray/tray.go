@@ -47,7 +47,7 @@ func (t *Tray) onReady() {
 	// Set tray icon
 	systray.SetIcon(iconData)
 	systray.SetTitle("Web Serial Terminal")
-	systray.SetTooltip(fmt.Sprintf("Web Serial Terminal v%s", t.version))
+	systray.SetTooltip(fmt.Sprintf("Web Serial Terminal %s", t.version))
 
 	// Add menu items
 	mOpen := systray.AddMenuItem("打开网页", "在浏览器中打开控制页面")
