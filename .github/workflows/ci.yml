@@ -34,9 +34,9 @@ jobs:
           path: dist/
           retention-days: 1
 
-  # 后端构建检查
-  backend:
-    name: Backend Build
+  # 后端编译检查（交叉编译 Windows）
+  backend-check:
+    name: Backend Compile Check
     needs: [frontend]
     runs-on: ubuntu-latest
     steps:
@@ -55,16 +55,16 @@ jobs:
           name: frontend-dist
           path: backend/internal/static/dist/
 
-      - name: Build backend
+      - name: Build backend (cross-compile Windows)
         working-directory: backend
         run: |
           go mod download
           CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../dist/web-serial-terminal.exe .
 
-  # 完整构建
-  build:
-    name: Full Build
-    needs: [frontend, backend]
+  # Windows 完整构建
+  build-windows:
+    name: Build Windows
+    needs: [frontend, backend-check]
     runs-on: windows-latest
     steps:
       - name: Checkout code
@@ -99,3 +99,44 @@ jobs:
             exit 1
           }
         shell: powershell
+
+  # Linux 完整构建
+  build-linux:
+    name: Build Linux
+    needs: [frontend, backend-check]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache-dependency-path: backend/go.sum
+
+      - name: Install GTK dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgtk-3-dev libappindicator3-dev
+
+      - name: Build with build.sh
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: Verify build
+        run: |
+          if [ -f "dist/web-serial-terminal" ]; then
+            echo "Build successful!"
+            ls -lh dist/web-serial-terminal
+          else
+            echo "Build failed: executable not found"
+            exit 1
+          fi

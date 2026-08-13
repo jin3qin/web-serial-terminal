@@ -126,9 +126,11 @@ export function toPortEntries(ports: readonly any[]): import('@/types/serial').P
     }
     // Otherwise create from name property
     const name = port.name || `port-${index}`;
+    const description = port.description || '';
     return {
       id: name,
-      label: port.description || port.label || name,
+      // Show actual port name, with description as secondary info if available
+      label: description ? `${name} (${description})` : name,
       port: port,
     };
   });

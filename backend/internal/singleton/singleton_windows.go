@@ -1,4 +1,6 @@
-// Package singleton provides single instance detection.
+//go:build windows
+
+// Package singleton provides single instance detection for Windows.
 package singleton
 
 import (

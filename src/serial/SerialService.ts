@@ -130,9 +130,9 @@ export class SerialService {
       
       return response.ports.map((p, index) => ({
         id: p.name,
-        label: p.description || p.name,
+        label: p.description ? `${p.name} (${p.description})` : p.name,
         name: p.name,
-        description: p.description || p.name,
+        description: p.description || '',
       }));
     } catch (err) {
       console.error('[SerialService] Failed to list ports:', err);

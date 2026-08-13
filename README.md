@@ -64,14 +64,32 @@
 
 ## 桌面版构建
 
-本项目支持打包为 Windows 桌面应用，支持在 Windows、Linux、macOS 上交叉编译。
+本项目支持打包为桌面应用，支持 Windows、Linux、macOS 平台。
 
 ### 依赖要求
 
-- **Node.js** 18+ - [下载地址](https://nodejs.org/)
-- **Go** 1.21+ - [下载地址](https://go.dev/dl/)
+| 平台 | 依赖 |
+|------|------|
+| **通用** | Node.js 18+ - [下载地址](https://nodejs.org/) |
+| **通用** | Go 1.21+ - [下载地址](https://go.dev/dl/) |
+| **Linux** | GTK3 + AppIndicator（系统托盘支持）|
 
-### Windows 构建运行 `build.bat` 完成完整构建：
+#### Linux 系统托盘依赖
+
+```bash
+# Ubuntu/Debian
+sudo apt-get install libgtk-3-dev libappindicator3-dev
+
+# Fedora
+sudo dnf install gtk3-devel libappindicator-gtk3-devel
+
+# Arch Linux
+sudo pacman -S gtk3 libappindicator
+```
+
+### Windows 构建
+
+运行 `build.bat` 完成完整构建：
 
 ```bash
 .\build.bat
@@ -86,8 +104,6 @@ chmod +x build.sh
 ./build.sh
 ```
 
-> **注意**：`build.sh` 使用交叉编译生成 Windows `.exe` 文件，适用于在 Linux/macOS 上为 Windows 构建程序。
-
 ### 构建步骤
 
 脚本会自动执行：
@@ -99,21 +115,28 @@ chmod +x build.sh
 
 ### 输出文件
 
-构建完成后，可执行文件位于：
-
-```
-dist/web-serial-terminal.exe
-```
+| 平台 | 输出文件 |
+|------|----------|
+| Windows | `dist/web-serial-terminal.exe` |
+| Linux/macOS | `dist/web-serial-terminal` |
 
 文件大小约 9-10MB。
 
 ### 运行程序
+
+**Windows:**
 
 双击 `dist/web-serial-terminal.exe`，程序会：
 
 1. 自动打开浏览器访问 http://localhost:8080
 2. 选择串口设备并配置参数
 3. 开始调试
+
+**Linux/macOS:**
+
+```bash
+./dist/web-serial-terminal
+```
 
 ### 手动构建（可选）
 
@@ -137,7 +160,7 @@ cd backend
 go build -ldflags="-H windowsgui -s -w" -o ..\dist\web-serial-terminal.exe .
 ```
 
-**Linux / macOS (交叉编译 Windows 版):**
+**Linux / macOS:**
 
 ```bash
 # 1. 安装依赖
@@ -150,9 +173,9 @@ npm run build
 mkdir -p backend/internal/static/dist
 cp -r dist/* backend/internal/static/dist/
 
-# 4. 构建后端（交叉编译 Windows 版）
+# 4. 构建后端
 cd backend
-CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../dist/web-serial-terminal.exe .
+CGO_ENABLED=1 go build -ldflags="-s -w" -o ../dist/web-serial-terminal .
 ```
 
 ### 常见问题
