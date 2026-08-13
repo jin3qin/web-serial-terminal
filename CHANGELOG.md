@@ -11,9 +11,14 @@
 
 - 待添加的新功能
 
-## [1.1.0] - 2026-08-12
+## [1.2.0] - 2026-08-13
 
 ### Added
+
+- **跨平台支持**
+  - Linux 平台原生构建支持
+  - Linux 系统托盘功能（需要 GTK3 + AppIndicator）
+  - 同时发布 Windows 和 Linux 版本
 
 - **核心功能**
   - 端口授权与连接
@@ -43,6 +48,7 @@
 
 - **桌面版**
   - Windows 桌面应用打包
+  - Linux 桌面应用支持
   - 系统托盘：最小化到托盘、托盘菜单
   - 单实例检测：防止多开
   - 自动打开浏览器
@@ -51,17 +57,24 @@
   - MIT License
   - GitHub Actions CI/CD
   - Issue 模板（Bug 报告、功能请求）
-  - 自动发布 Release
+  - 自动发布 Release（Windows + Linux）
+
+### Changed
+
+- 版本号统一通过 Git Tag 管理
+- 端口名显示实际设备名（如 `ttyUSB0 (USB串口设备)`）
+- 重命名项目为 `web-serial-terminal`
 
 ### Technical
 
 - 前端：React 18 + TypeScript + Vite + MUI + Tailwind CSS
 - 后端：Go + Gin + WebSocket
-- 版本号通过 Git Tag 管理
+- 版本号通过 Git Tag 自动获取
+- 平台条件编译支持 Windows/Linux/macOS
 
 ---
 
 ## 版本说明
 
 - **[Unreleased]**: 开发中的功能，尚未发布
-- **[1.1.0]**: 首个正式发布版本
+- **[1.1.0]**: 首个正式发布版本，支持 Windows 和 Linux
